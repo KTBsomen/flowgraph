@@ -1,3 +1,4 @@
+import './styles.css';
 import { StateManager } from './core/StateManager.js';
 import { CanvasManager } from './core/CanvasManager.js';
 import { ConnectionManager } from './core/ConnectionManager.js';

@@ -1,0 +1,36 @@
+{
+  "name": "flowgraph",
+  "version": "1.0.0",
+  "description": "Flow orchestration engine for creating workflow diagrams",
+  "main": "./dist/flowgraph.umd.js",
+  "module": "./dist/flowgraph.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/flowgraph.es.js",
+      "require": "./dist/flowgraph.umd.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KTBsomen/flowgraph.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KTBsomen/flowgraph/issues"
+  },
+  "homepage": "https://github.com/KTBsomen/flowgraph#readme",
+  "devDependencies": {
+    "vite": "^8.0.1"
+  }
+}
