@@ -32,6 +32,8 @@ export function createWorkflow(options = {}) {
     nodes: customNodes = [],
     canvasOptions = {},
     minimap: showMinimap = true,
+    readOnly = false,
+    onEdit = null,
   } = options;
 
   if (!container) throw new Error('[Workflow] container is required');
@@ -42,13 +44,19 @@ export function createWorkflow(options = {}) {
 
   /* ── Layout ── */
   container.innerHTML = `
-    <div class="wf-layout">
-      <div class="wf-toolbar-wrap" id="wf-toolbar-wrap"></div>
+    <div class="wf-layout ${readOnly ? 'wf-layout--readonly' : ''}">
+      ${!readOnly ? `<div class="wf-toolbar-wrap" id="wf-toolbar-wrap"></div>` : ''}
       <div class="wf-main">
-        <div class="wf-sidebar-wrap"  id="wf-sidebar-wrap"></div>
+        ${!readOnly ? `<div class="wf-sidebar-wrap"  id="wf-sidebar-wrap"></div>` : ''}
         <div class="wf-canvas-wrap"   id="wf-canvas-wrap"></div>
-        <div class="wf-config-wrap"   id="wf-config-wrap"></div>
+        ${!readOnly ? `<div class="wf-config-wrap"   id="wf-config-wrap"></div>` : ''}
       </div>
+      ${(readOnly && onEdit) ? `
+        <button class="wf-edit-btn" id="wf-edit-btn">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Edit Workflow
+        </button>
+      ` : ''}
     </div>
   `;
 
@@ -56,18 +64,26 @@ export function createWorkflow(options = {}) {
   const sidebarWrap = container.querySelector('#wf-sidebar-wrap');
   const canvasWrap = container.querySelector('#wf-canvas-wrap');
   const configWrap = container.querySelector('#wf-config-wrap');
+  const editBtn = container.querySelector('#wf-edit-btn');
+
+  if (editBtn && onEdit) {
+    editBtn.addEventListener('click', () => onEdit());
+  }
 
   /* ── Core systems ── */
   const state = new StateManager();
   const canvas = new CanvasManager(canvasWrap, canvasOptions);
   const validator = new Validator(state);
-  const connection = new ConnectionManager(canvas, state, validator);
-  const renderer = new NodeRenderer(canvas, state, connection);
+  const connection = new ConnectionManager(canvas, state, validator, readOnly);
+  const renderer = new NodeRenderer(canvas, state, connection, readOnly);
 
-  /* ── UI (Toolbar created without workflow — bound later) ── */
-  const sidebar = new SidebarPanel(sidebarWrap, nodeTypes, _dropNode);
-  const config = new ConfigPanel(configWrap);
-  const toolbar = new Toolbar(toolbarWrap);
+  /* ── UI (Only create if not read-only) ── */
+  let sidebar, config, toolbar;
+  if (!readOnly) {
+    sidebar = new SidebarPanel(sidebarWrap, nodeTypes, _dropNode);
+    config = new ConfigPanel(configWrap);
+    toolbar = new Toolbar(toolbarWrap);
+  }
 
   if (showMinimap) {
     new Minimap(canvasWrap, canvas, state);
@@ -102,17 +118,30 @@ export function createWorkflow(options = {}) {
       finalPos = canvas.snapPoint(worldPos.x - 90, worldPos.y - 40);
     }
 
+    const config = Object.fromEntries(
+      Object.entries(def.configSchema || {}).map(([k, v]) => [k, v.default ?? ''])
+    );
+
     const nodeData = {
       ...structuredClone(def),
       id: uid(type),
-      config: Object.fromEntries(
-        Object.entries(def.configSchema || {}).map(([k, v]) => [k, v.default ?? ''])
-      ),
+      config,
     };
+
+    // Initial Dynamic Ports (e.g. Router)
+    if (type === 'router' && Array.isArray(config.routes)) {
+      nodeData.outputs = config.routes.map(r => ({
+        name: r.toLowerCase().replace(/\s+/g, '_'),
+        label: r,
+        type: 'any'
+      }));
+    }
 
     state.addNode(nodeData, finalPos);
     renderer.renderNode(nodeData, finalPos);
     _emitHook('onNodeAdd', { node: nodeData, position: finalPos });
+
+    return nodeData;
   }
 
   /* ── Node events ── */
@@ -136,15 +165,40 @@ export function createWorkflow(options = {}) {
     _emitHook('onChange', data);
   });
 
-  renderer.on('nodeSelect', ({ id, node }) => {
-    config.show(node, (nodeId, newConfig) => {
-      state.updateNodeConfig(nodeId, newConfig);
+  if (renderer) {
+    renderer.on('nodeSelect', ({ id, node }) => {
+      if (config) {
+        config.show(node, (nodeId, newConfig) => {
+          const n = state.nodes.get(nodeId);
+          if (!n) return;
+
+          // Dynamic Router Ports Logic
+          if (n.type === 'router' && Array.isArray(newConfig.routes)) {
+            const newOutputs = newConfig.routes.map(r => ({
+              name: r.toLowerCase().replace(/\s+/g, '_'),
+              label: r,
+              type: 'any'
+            }));
+            
+            // Update node metadata
+            n.outputs = newOutputs;
+            
+            // Re-render node in canvas
+            renderer.updateNodeEl(nodeId);
+            
+            // Re-render edges to align with new port positions
+            connection.renderAllEdges();
+          }
+
+          state.updateNodeConfig(nodeId, newConfig);
+        });
+      }
     });
-  });
+  }
 
   /* ── Canvas click to deselect ── */
   canvas.nodeLayer.addEventListener('click', e => {
-    if (e.target === canvas.nodeLayer) config.clear();
+    if (e.target === canvas.nodeLayer && config) config.clear();
   });
 
   /* ── Load state handler ── */
@@ -168,7 +222,21 @@ export function createWorkflow(options = {}) {
     canvas,
 
     addNode(type, position) {
-      _dropNode(type, position);
+      const node = _dropNode(type, position);
+      return node?.id;
+    },
+
+    addEdge(fromNode, fromPort, toNode, toPort) {
+      const valid = validator.canConnect(fromNode, fromPort, toNode, toPort);
+      if (!valid.ok) {
+        console.warn('[Workflow] addEdge failed:', valid.reason);
+        return null;
+      }
+      const edgeId = `edge_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const edge = { id: edgeId, fromNode, fromPort, toNode, toPort };
+      state.addEdge(edge);
+      connection._renderEdge(edge);
+      return edgeId;
     },
 
     removeNode(id) {
@@ -195,7 +263,7 @@ export function createWorkflow(options = {}) {
       state.edges = [];
       state.positions.clear();
       state._emit('change', state.serialize());
-      config.clear();
+      if (config) config.clear();
     },
 
     getAdjacencyList() { return state.getAdjacencyList(); },
@@ -228,12 +296,12 @@ export function createWorkflow(options = {}) {
     registerNodeType(def) {
       nodeTypes.push(def);
       nodeTypeMap.set(def.type, def);
-      sidebar._renderList();
+      if (sidebar) sidebar._renderList();
     },
   };
 
   /* ── Bind toolbar AFTER workflow API is created ── */
-  toolbar.setWorkflow(workflow);
+  if (toolbar) toolbar.setWorkflow(workflow);
 
   return workflow;
 }

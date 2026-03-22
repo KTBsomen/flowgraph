@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowGraph — View Only Mode</title>
+  <link rel="stylesheet" href="src/styles.css">
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: #0f172a;
+      overflow: hidden;
+    }
+
+    #app {
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .demo-info {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(8px);
+      padding: 12px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <div class="demo-info">
+    <b>View-Only Mode:</b> Nodes are draggable, but connections and edits are disabled.
+  </div>
+
+  <script type="module">
+    import { createWorkflow } from './src/index.js';
+
+    // Simulated data
+    const demoData = {
+      nodes: [
+        { id: 'n1', type: 'start', label: 'Trigger', config: {}, position: { x: 100, y: 150 } },
+        { id: 'n2', type: 'action', label: 'Processor', config: {}, position: { x: 400, y: 150 } },
+        { id: 'n3', type: 'end', label: 'Success', config: {}, position: { x: 700, y: 150 } }
+      ],
+      edges: [
+        { id: 'e1', fromNode: 'n1', fromPort: 'out', toNode: 'n2', toPort: 'in' },
+        { id: 'e2', fromNode: 'n2', fromPort: 'out', toNode: 'n3', toPort: 'in' }
+      ]
+    };
+
+    const wf = createWorkflow({
+      container: document.getElementById('app'),
+      readOnly: true,
+      onEdit: () => {
+        alert('Switching to Editor Mode...');
+        window.location.href = 'index.html';
+      }
+    });
+    window.wf = wf;
+    // Load the data
+    wf.loadJSON(demoData);
+    wf.fitToView();
+  </script>
+</body>
+
+</html>

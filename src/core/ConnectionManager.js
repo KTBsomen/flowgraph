@@ -2,17 +2,20 @@
  * ConnectionManager — draws SVG bezier edges, manages drag-to-connect
  */
 export class ConnectionManager {
-  constructor(canvasManager, stateManager, validator) {
+  constructor(canvasManager, stateManager, validator, readOnly = false) {
     this.canvas = canvasManager;
     this.state = stateManager;
     this.validator = validator;
+    this.readOnly = readOnly;
 
     this._dragging = null;   // { fromNode, fromPort, portType, x, y }
     this._previewPath = null;
     this._edgePaths = new Map(); // edgeId → { visible, hitArea }
     this._rafId = null;
-
-    this._bindGlobalEvents();
+    
+    if (!this.readOnly) {
+      this._bindGlobalEvents();
+    }
   }
 
   /* Called by NodeRenderer when user drags from an output port */
@@ -97,23 +100,28 @@ export class ConnectionManager {
     this._edgePaths.set(edge.id, { visible, hitArea, group });
     this._updateEdgePosition(edge);
 
-    // Click hit area to delete edge
-    hitArea.addEventListener('click', e => {
-      e.stopPropagation();
-      this._deleteEdge(edge.id);
-    });
+    if (!this.readOnly) {
+      // Click hit area to delete edge
+      hitArea.addEventListener('click', e => {
+        e.stopPropagation();
+        this._deleteEdge(edge.id);
+      });
 
-    // Hover glow
-    hitArea.addEventListener('mouseenter', () => {
-      visible.style.filter = 'url(#wf-glow)';
-      visible.setAttribute('stroke-width', '3');
-      visible.style.opacity = '1';
-    });
-    hitArea.addEventListener('mouseleave', () => {
-      visible.style.filter = '';
-      visible.setAttribute('stroke-width', '2');
-      visible.style.opacity = '0.85';
-    });
+      // Hover glow
+      hitArea.addEventListener('mouseenter', () => {
+        visible.style.filter = 'url(#wf-glow)';
+        visible.setAttribute('stroke-width', '3');
+        visible.style.opacity = '1';
+      });
+      hitArea.addEventListener('mouseleave', () => {
+        visible.style.filter = '';
+        visible.setAttribute('stroke-width', '2');
+        visible.style.opacity = '0.85';
+      });
+    } else {
+      hitArea.style.cursor = 'default';
+      hitArea.style.pointerEvents = 'none';
+    }
   }
 
   _deleteEdge(edgeId) {

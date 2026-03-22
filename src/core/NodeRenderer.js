@@ -2,10 +2,11 @@
  * NodeRenderer — creates DOM elements for workflow nodes, handles drag-to-move
  */
 export class NodeRenderer {
-  constructor(canvasManager, stateManager, connectionManager) {
+  constructor(canvasManager, stateManager, connectionManager, readOnly = false) {
     this.canvas = canvasManager;
     this.state = stateManager;
     this.connection = connectionManager;
+    this.readOnly = readOnly;
 
     this._selectedNodes = new Set();
     this._nodeEls = new Map(); // id → el
@@ -15,7 +16,7 @@ export class NodeRenderer {
 
   renderNode(nodeData, position) {
     const el = document.createElement('div');
-    el.className = `wf-node wf-node--${nodeData.type}`;
+    el.className = `wf-node wf-node--${nodeData.type} ${this.readOnly ? 'wf-read-only' : ''}`;
     el.dataset.nodeId = nodeData.id;
     el.style.left = `${position.x}px`;
     el.style.top = `${position.y}px`;
@@ -41,13 +42,13 @@ export class NodeRenderer {
       <div class="wf-node-header" style="background:${headerBg}">
         <span class="wf-node-icon">${icon}</span>
         <span class="wf-node-label">${node.label}</span>
-        <button class="wf-node-delete" title="Delete node" data-action="delete">✕</button>
+        ${!this.readOnly ? `<button class="wf-node-delete" title="Delete node" data-action="delete">✕</button>` : ''}
       </div>
       <div class="wf-node-body">
         <div class="wf-ports wf-ports--input">${inputs}</div>
         <div class="wf-ports wf-ports--output">${outputs}</div>
       </div>
-      <div class="wf-node-resize-handle"></div>
+      ${!this.readOnly ? `<div class="wf-node-resize-handle"></div>` : ''}
     `;
   }
 
@@ -85,34 +86,37 @@ export class NodeRenderer {
     });
 
     // Port drag (output → start connection)
-    el.querySelectorAll('[data-port][data-direction="output"]').forEach(portEl => {
-      const startConnect = e => {
-        e.stopPropagation();
-        e.preventDefault();
-        this.connection.startDrag(nodeData.id, portEl.dataset.port, portEl, 'output');
-      };
-      portEl.addEventListener('mousedown', startConnect);
-      portEl.addEventListener('touchstart', startConnect, { passive: false });
-    });
-
-    // Port drop (input → finish connection)
-    el.querySelectorAll('[data-port][data-direction="input"]').forEach(portEl => {
-      const finishConnect = e => {
-        e.stopPropagation();
-        this.connection.finishDrag(nodeData.id, portEl.dataset.port, portEl);
-      };
-      portEl.addEventListener('mouseup', finishConnect);
-      portEl.addEventListener('touchend', finishConnect);
-      
-      portEl.addEventListener('mouseenter', () => {
-        if (this.connection._dragging) portEl.classList.add('wf-port--hover');
+    if (!this.readOnly) {
+      el.querySelectorAll('[data-port][data-direction="output"]').forEach(portEl => {
+        const startConnect = e => {
+          e.stopPropagation();
+          e.preventDefault();
+          this.connection.startDrag(nodeData.id, portEl.dataset.port, portEl, 'output');
+        };
+        portEl.addEventListener('mousedown', startConnect);
+        portEl.addEventListener('touchstart', startConnect, { passive: false });
       });
-      portEl.addEventListener('mouseleave', () => portEl.classList.remove('wf-port--hover'));
-    });
 
-    // Config click → emit select
+      // Port drop (input → finish connection)
+      el.querySelectorAll('[data-port][data-direction="input"]').forEach(portEl => {
+        const finishConnect = e => {
+          e.stopPropagation();
+          this.connection.finishDrag(nodeData.id, portEl.dataset.port, portEl);
+        };
+        portEl.addEventListener('mouseup', finishConnect);
+        portEl.addEventListener('touchend', finishConnect);
+        
+        portEl.addEventListener('mouseenter', () => {
+          if (this.connection._dragging) portEl.classList.add('wf-port--hover');
+        });
+        portEl.addEventListener('mouseleave', () => portEl.classList.remove('wf-port--hover'));
+      });
+    }
+
+    // Config click → emit select (always allowed for view-only to see info?)
+    // Actually, user said "no sidebars", so we don't need to show config.
     el.addEventListener('click', e => {
-      if (!e.target.closest('[data-port]') && !e.target.closest('[data-action]')) {
+      if (!this.readOnly && !e.target.closest('[data-port]') && !e.target.closest('[data-action]')) {
         this._emit('nodeSelect', { id: nodeData.id, node: nodeData });
       }
     });

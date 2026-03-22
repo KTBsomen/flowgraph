@@ -145,11 +145,17 @@
 
     /* ── Load a demo workflow ── */
     setTimeout(() => {
-      wf.addNode('start', { x: 80, y: 160 });
-      wf.addNode('action', { x: 340, y: 80 });
-      wf.addNode('condition', { x: 340, y: 280 });
-      wf.addNode('api', { x: 600, y: 80 });
-      wf.addNode('end', { x: 860, y: 220 });
+      const s = wf.addNode('start', { x: 80, y: 160 });
+      const a = wf.addNode('action', { x: 340, y: 80 });
+      const c = wf.addNode('condition', { x: 340, y: 280 });
+      const api = wf.addNode('api', { x: 600, y: 80 });
+      const e = wf.addNode('end', { x: 860, y: 220 });
+
+      // Connect them!
+      wf.addEdge(s, 'out', a, 'in');
+      wf.addEdge(a, 'out', api, 'in');
+      wf.addEdge(api, 'success', e, 'in');
+      
       wf.fitToView();
     }, 150);
 

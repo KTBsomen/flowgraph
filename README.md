@@ -52,6 +52,9 @@ Create a container element in your HTML and initialize the workflow:
 | `container` | `HTMLElement` | **Required.** The parent element where the UI will be injected. |
 | `nodes` | `Array` | Optional list of custom node definitions to extend the library. |
 | `minimap` | `boolean` | Whether to show the minimap (default: `true`). |
+| `readOnly` | `boolean` | If `true`, hides sidebars/toolbars and disables edits while keeping nodes draggable (default: `false`). |
+| `onEdit` | `Function` | If provided in `readOnly` mode, renders a premium "Edit Workflow" button that triggers this callback. |
+| `onNodeAdd` | `Function` | Callback `{ node, position }` triggered when a node is added. |
 | `canvasOptions` | `object` | Detailed canvas behavior settings (see below). |
 
 ### Canvas Options
@@ -112,7 +115,7 @@ workflow.registerNodeType(weatherNode);
 | `label` | Display name shown in the sidebar and on the node. |
 | `inputs` | Array of `{ name, label, type, multiple }`. Set `multiple: true` to allow many wires into one port. |
 | `outputs`| Array of `{ name, label, type }`. |
-| `configSchema`| UI fields for the right-side panel. Supports `text`, `number`, `select`, `code`, `textarea`. |
+| `configSchema`| UI fields for the right-side panel. Supports `text`, `number`, `select`, `code`, `textarea`, `color`. Each field can have an optional `help: { text, image }` object. |
 | `style` | Object with `background` (CSS color/gradient) and optional `icon` (SVG string). |
 
 ---
@@ -127,8 +130,14 @@ The `createWorkflow` function returns a `workflow` object with the following met
 - `clear()`: Wipes everything from the canvas.
 
 ### Node Operations
-- `addNode(type, position)`: Programmatically add a node of a specific type.
+- `addNode(type, position)`: Programmatically adds a node. **Returns the new node's unique ID.**
+  - `type`: String (e.g. 'start', 'action').
   - `position`: `{ x, y }` in world coordinates.
+- `addEdge(fromNode, fromPort, toNode, toPort)`: Connects two ports. Returns the edge ID or `null` if invalid.
+  - `fromNode`: Source node ID.
+  - `fromPort`: Name of the output port.
+  - `toNode`: Target node ID.
+  - `toPort`: Name of the input port.
 - `removeNode(id)`: Remove a node by its unique ID.
 - `deleteSelected()`: Deletes all currently selected nodes.
 
