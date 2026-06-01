@@ -47,24 +47,24 @@ Create a container element in your HTML and initialize the workflow:
 
 `createWorkflow(options)` accepts the following parameters:
 
-| Parameter | Type | Description |
-| :--- | :--- | :--- |
-| `container` | `HTMLElement` | **Required.** The parent element where the UI will be injected. |
-| `nodes` | `Array` | Optional list of custom node definitions to extend the library. |
-| `minimap` | `boolean` | Whether to show the minimap (default: `true`). |
-| `readOnly` | `boolean` | If `true`, hides sidebars/toolbars and disables edits while keeping nodes draggable (default: `false`). |
-| `onEdit` | `Function` | If provided in `readOnly` mode, renders a premium "Edit Workflow" button that triggers this callback. |
-| `onNodeAdd` | `Function` | Callback `{ node, position }` triggered when a node is added. |
-| `canvasOptions` | `object` | Detailed canvas behavior settings (see below). |
+| Parameter       | Type          | Description                                                                                             |
+| :-------------- | :------------ | :------------------------------------------------------------------------------------------------------ |
+| `container`     | `HTMLElement` | **Required.** The parent element where the UI will be injected.                                         |
+| `nodes`         | `Array`       | Optional list of custom node definitions to extend the library.                                         |
+| `minimap`       | `boolean`     | Whether to show the minimap (default: `true`).                                                          |
+| `readOnly`      | `boolean`     | If `true`, hides sidebars/toolbars and disables edits while keeping nodes draggable (default: `false`). |
+| `onEdit`        | `Function`    | If provided in `readOnly` mode, renders a premium "Edit Workflow" button that triggers this callback.   |
+| `onNodeAdd`     | `Function`    | Callback `{ node, position }` triggered when a node is added.                                           |
+| `canvasOptions` | `object`      | Detailed canvas behavior settings (see below).                                                          |
 
 ### Canvas Options
-| Option | Default | Description |
-| :--- | :--- | :--- |
-| `gridSize` | `20` | Distance between grid lines. |
-| `showGrid` | `true` | Visibility of the background grid. |
-| `snapToGrid`| `true` | Automatically align nodes to the grid on drop/move. |
-| `minZoom` | `0.18` | Minimum zoom level. |
-| `maxZoom` | `3.0` | Maximum zoom level. |
+| Option       | Default | Description                                         |
+| :----------- | :------ | :-------------------------------------------------- |
+| `gridSize`   | `20`    | Distance between grid lines.                        |
+| `showGrid`   | `true`  | Visibility of the background grid.                  |
+| `snapToGrid` | `true`  | Automatically align nodes to the grid on drop/move. |
+| `minZoom`    | `0.18`  | Minimum zoom level.                                 |
+| `maxZoom`    | `3.0`   | Maximum zoom level.                                 |
 
 ---
 
@@ -109,14 +109,14 @@ workflow.registerNodeType(weatherNode);
 
 ### Node Property Details
 
-| Property | Description |
-| :--- | :--- |
-| `type` | Unique string identifier for the node type. |
-| `label` | Display name shown in the sidebar and on the node. |
-| `inputs` | Array of `{ name, label, type, multiple }`. Set `multiple: true` to allow many wires into one port. |
-| `outputs`| Array of `{ name, label, type }`. |
-| `configSchema`| UI fields for the right-side panel. Supports `text`, `number`, `select`, `code`, `textarea`, `color`. Each field can have an optional `help: { text, image }` object. |
-| `style` | Object with `background` (CSS color/gradient) and optional `icon` (SVG string). |
+| Property       | Description                                                                                                                                                           |
+| :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`         | Unique string identifier for the node type.                                                                                                                           |
+| `label`        | Display name shown in the sidebar and on the node.                                                                                                                    |
+| `inputs`       | Array of `{ name, label, type, multiple }`. Set `multiple: true` to allow many wires into one port.                                                                   |
+| `outputs`      | Array of `{ name, label, type }`.                                                                                                                                     |
+| `configSchema` | UI fields for the right-side panel. Supports `text`, `number`, `select`, `code`, `textarea`, `color`. Each field can have an optional `help: { text, image }` object. |
+| `style`        | Object with `background` (CSS color/gradient) and optional `icon` (SVG string).                                                                                       |
 
 ---
 
@@ -160,17 +160,92 @@ FlowGraph is built with a mobile-first mindset:
 
 ---
 
-## 🎨 Styling
+## 🎨 Styling & CSS Variables
 
-The library uses **Vanilla CSS variables** for easy theming. You can override these in your global CSS:
+The library uses **namespaced CSS variables** with the `wf-` prefix to avoid conflicts with your application styles. You can override these in your global CSS:
 
+### Available CSS Variables
+
+All CSS variables are prefixed with `wf-` to prevent style pollution:
+
+**Colors:**
 ```css
 :root {
-  --wf-accent: #6366f1;
-  --wf-bg-canvas: #0f172a;
-  --wf-border: rgba(255, 255, 255, 0.1);
+  /* Backgrounds */
+  --wf-bg-app: #0d0f14;           /* Main app background */
+  --wf-bg-panel: #131620;         /* Panel background */
+  --wf-bg-surface: #1a1e2e;       /* Surface elements */
+  --wf-bg-hover: #1f2537;         /* Hover state */
+  --wf-bg-active: #252c40;        /* Active state */
+
+  /* Text */
+  --wf-text-primary: #e2e8f0;     /* Primary text */
+  --wf-text-secondary: #8892a4;   /* Secondary text */
+  --wf-text-muted: #4a5568;       /* Muted text */
+
+  /* Accents & Effects */
+  --wf-accent: #6366f1;           /* Primary accent color */
+  --wf-accent-soft: rgba(99, 102, 241, 0.15);
+  --wf-accent-glow: rgba(99, 102, 241, 0.35);
+
+  /* Status Colors */
+  --wf-success: #10b981;
+  --wf-warning: #f59e0b;
+  --wf-danger: #ef4444;
+  --wf-info: #06b6d4;
+
+  /* Borders */
+  --wf-border: rgba(255, 255, 255, 0.07);
+  --wf-border-hover: rgba(255, 255, 255, 0.14);
 }
 ```
+
+**Spacing & Effects:**
+```css
+:root {
+  /* Shadows */
+  --wf-node-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3);
+  --wf-node-shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(99, 102, 241, 0.2);
+  --wf-panel-shadow: 2px 0 20px rgba(0, 0, 0, 0.4);
+
+  /* Border Radius */
+  --wf-radius-sm: 6px;
+  --wf-radius-md: 10px;
+  --wf-radius-lg: 14px;
+  --wf-radius-xl: 20px;
+
+  /* Typography */
+  --wf-font-sans: 'DM Sans', system-ui, sans-serif;
+  --wf-font-mono: 'JetBrains Mono', monospace;
+
+  /* Animations */
+  --wf-transition: 0.18s ease;
+}
+```
+
+### Custom Theme Example
+
+```css
+/* Override default dark theme with a light theme */
+:root {
+  --wf-bg-app: #f5f5f5;
+  --wf-bg-panel: #ffffff;
+  --wf-bg-surface: #fafafa;
+  --wf-text-primary: #1a1a1a;
+  --wf-text-secondary: #666666;
+  --wf-text-muted: #999999;
+  --wf-border: rgba(0, 0, 0, 0.1);
+  --wf-accent: #0066cc;
+}
+```
+
+### Why the `wf-` Prefix?
+
+All CSS variables use the `wf-` (FlowGraph) prefix to:
+- **Prevent conflicts** with your application's global styles
+- **Improve namespace clarity** in your CSS
+- **Enable easy theming** by clearly identifying FlowGraph-specific variables
+- **Follow CSS best practices** for component-scoped styling
 
 ---
 

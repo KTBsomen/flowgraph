@@ -77,8 +77,7 @@ export const BUILT_IN_NODES = [
       { name: 'false', label: 'False', type: 'any' },
     ],
     configSchema: {
-      expression: { type: 'text', label: 'Condition', default: '{{input}} > 0' },
-      mode: { type: 'select', label: 'Mode', options: ['expression', 'javascript'], default: 'expression' },
+      conditions: { type: 'condition_builder', label: 'Match Conditions' },
     },
     style: { background: 'linear-gradient(135deg,#f59e0b,#d97706)' },
   },
@@ -100,11 +99,9 @@ export const BUILT_IN_NODES = [
           image: 'https://images.unsplash.com/photo-1558494949-ef01091559ed?auto=format&fit=crop&q=80&w=400'
         }
       },
-      conditions: {
-        type: 'code',
-        label: 'Route Conditions (JS)',
-        default: '// return "success" or ["success", "log"]\nif (msg.payload > 10) return "Success";\nreturn "Failure";',
-        help: { text: 'Write JavaScript logic to decide which route(s) to take. Return the name of the route.' }
+      routeConditions: {
+        type: 'router_conditions',
+        label: 'Route Rules'
       },
       strategy: { type: 'select', label: 'Strategy', options: ['all', 'first-match', 'round-robin'], default: 'all' },
     },
@@ -164,4 +161,4 @@ export const BUILT_IN_NODES = [
   },
 ];
 
-export const CATEGORIES = ['Flow', 'Logic', 'Operations', 'Data', 'Integration', 'Utilities'];
+export const CATEGORIES = ['Flow', 'Logic', 'Operations', 'Data', 'Integration', 'Integrations', 'Utilities'];

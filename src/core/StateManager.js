@@ -102,8 +102,14 @@ export class StateManager {
 
   /* ─── Serialization ─── */
   serialize() {
+    // Strip runtime-only refs (_apPiece) from nodes before serializing
+    const nodes = Array.from(this.nodes.values()).map(node => {
+      if (!node._apPiece) return node;
+      const { _apPiece, ...rest } = node;
+      return rest;
+    });
     return {
-      nodes: Array.from(this.nodes.values()),
+      nodes,
       edges: [...this.edges],
       positions: Object.fromEntries(this.positions),
     };

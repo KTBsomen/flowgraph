@@ -49,11 +49,20 @@ export class SidebarPanel {
     const filtered = this.nodeTypes.filter(n =>
       n.label.toLowerCase().includes(q) ||
       n.type.toLowerCase().includes(q) ||
+      (n.description || '').toLowerCase().includes(q) ||
       (n.category || '').toLowerCase().includes(q)
     );
 
+    // Build category order: known categories first, then any dynamic ones (e.g. Integrations from registerPiece)
+    const knownOrder = [...CATEGORIES];
+    const allCats = [...new Set(filtered.map(n => n.category || 'Other'))];
+    const orderedCats = [
+      ...knownOrder.filter(c => allCats.includes(c)),
+      ...allCats.filter(c => !knownOrder.includes(c))
+    ];
+
     const byCategory = {};
-    for (const cat of CATEGORIES) byCategory[cat] = [];
+    for (const cat of orderedCats) byCategory[cat] = [];
     for (const n of filtered) {
       const cat = n.category || 'Other';
       if (!byCategory[cat]) byCategory[cat] = [];
@@ -61,7 +70,8 @@ export class SidebarPanel {
     }
 
     this.listEl.innerHTML = '';
-    for (const [cat, nodes] of Object.entries(byCategory)) {
+    for (const cat of orderedCats) {
+      const nodes = byCategory[cat] || [];
       if (!nodes.length) continue;
       const section = document.createElement('div');
       section.className = 'wf-category';
@@ -80,13 +90,19 @@ export class SidebarPanel {
         section.classList.toggle('wf-category--collapsed');
       });
     }
+
+    // Show "no results" state
+    if (!this.listEl.children.length) {
+      this.listEl.innerHTML = `<div style="padding:20px 14px;text-align:center;font-size:12px;color:var(--wf-text-muted)">No nodes match "${q}"</div>`;
+    }
   }
 
   _nodeItemHTML(node) {
     const bg = node.style?.background || '#6366f1';
+    const icon = node.style?.icon || this._defaultIcon();
     return `
       <div class="wf-node-item" draggable="true" data-type="${node.type}" title="${node.description || node.label}">
-        <div class="wf-node-item-icon" style="background:${bg}">${node.style?.icon || this._defaultIcon()}</div>
+        <div class="wf-node-item-icon" style="background:${bg}">${icon}</div>
         <div class="wf-node-item-info">
           <div class="wf-node-item-label">${node.label}</div>
           <div class="wf-node-item-desc">${node.description || ''}</div>

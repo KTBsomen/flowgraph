@@ -13,6 +13,37 @@ import { BUILT_IN_NODES } from './nodes/builtins.js';
 let _nodeCounter = 0;
 const uid = (type) => `${type}_${++_nodeCounter}_${Date.now().toString(36)}`;
 
+function flattenVariables(vars) {
+  const flat = [];
+  const recurse = (obj, prefix = '') => {
+    for (const [key, value] of Object.entries(obj)) {
+      const path = prefix ? `${prefix}.${key}` : key;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        recurse(value, path);
+      } else {
+        flat.push({
+          name: path,
+          label: path.split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '),
+          type: typeof value === 'object' ? 'string' : typeof value
+        });
+      }
+    }
+  };
+  
+  if (Array.isArray(vars)) {
+    for (const item of vars) {
+      if (item && typeof item === 'object' && item.name) {
+        flat.push(item);
+      } else if (item && typeof item === 'object') {
+        recurse(item);
+      }
+    }
+  } else if (vars && typeof vars === 'object') {
+    recurse(vars);
+  }
+  return flat;
+}
+
 /**
  * createWorkflow — main factory function
  *
@@ -35,6 +66,7 @@ export function createWorkflow(options = {}) {
     minimap: showMinimap = true,
     readOnly = false,
     onEdit = null,
+    availableVariables = [],
   } = options;
 
   if (!container) throw new Error('[Workflow] container is required');
@@ -119,15 +151,27 @@ export function createWorkflow(options = {}) {
       finalPos = canvas.snapPoint(worldPos.x - 90, worldPos.y - 40);
     }
 
-    const config = Object.fromEntries(
-      Object.entries(def.configSchema || {}).map(([k, v]) => [k, v.default ?? ''])
-    );
+    // Build initial config from schema defaults
+    // Skip complex builder fields (condition_builder, router_conditions) — they default to empty
+    const config = {};
+    for (const [k, v] of Object.entries(def.configSchema || {})) {
+      if (v.type === 'condition_builder') {
+        config[k] = { logicalOperator: 'AND', rules: [] };
+      } else if (v.type === 'router_conditions') {
+        config[k] = {}; // Will be populated from routes
+      } else {
+        config[k] = v.default ?? '';
+      }
+    }
 
+    // structuredClone strips non-serializable refs (_apPiece), so preserve them
+    const apPiece = def._apPiece;
     const nodeData = {
       ...structuredClone(def),
       id: uid(type),
       config,
     };
+    if (apPiece) nodeData._apPiece = apPiece; // Re-attach piece reference
 
     // Initial Dynamic Ports (e.g. Router)
     if (type === 'router' && Array.isArray(config.routes)) {
@@ -169,26 +213,35 @@ export function createWorkflow(options = {}) {
   if (renderer) {
     renderer.on('nodeSelect', ({ id, node }) => {
       if (config) {
-        config.show(node, (nodeId, newConfig) => {
+        // Re-fetch node from state to always get the latest version (with _apPiece)
+        const latestNode = state.nodes.get(id) || node;
+        config.show(latestNode, (nodeId, newConfig) => {
           const n = state.nodes.get(nodeId);
           if (!n) return;
 
-          // Dynamic Router Ports Logic
+          // Dynamic Router Ports — update canvas ports when routes list changes
           if (n.type === 'router' && Array.isArray(newConfig.routes)) {
             const newOutputs = newConfig.routes.map(r => ({
               name: r.toLowerCase().replace(/\s+/g, '_'),
               label: r,
               type: 'any'
             }));
-            
-            // Update node metadata
             n.outputs = newOutputs;
-            
-            // Re-render node in canvas
+            // Save config first so panel re-render sees updated routes
+            state.updateNodeConfig(nodeId, newConfig);
             renderer.updateNodeEl(nodeId);
-            
-            // Re-render edges to align with new port positions
             connection.renderAllEdges();
+            // Re-render panel so routeConditions cards reflect the new routes list
+            config.show(state.nodes.get(nodeId), config._onChange);
+            return; // Skip the updateNodeConfig at the bottom (already done above)
+          }
+
+          // Activepieces action changed -> re-render properties with new action fields
+          if (n.type.startsWith('ap_') && newConfig.actionName !== n.config.actionName) {
+            n.config = { actionName: newConfig.actionName };
+            state.updateNodeConfig(nodeId, n.config);
+            config.show(n, config._onChange);
+            return;
           }
 
           state.updateNodeConfig(nodeId, newConfig);
@@ -299,10 +352,49 @@ export function createWorkflow(options = {}) {
       nodeTypeMap.set(def.type, def);
       if (sidebar) sidebar._renderList();
     },
+
+    availableVariables: flattenVariables(availableVariables),
+
+    setAvailableVariables(vars) {
+      this.availableVariables = flattenVariables(vars);
+      if (config && state.nodes.size > 0) {
+        const activeNodeId = config._nodeId;
+        if (activeNodeId) {
+          const activeNode = state.nodes.get(activeNodeId);
+          if (activeNode) config.show(activeNode, config._onChange);
+        }
+      }
+    },
+
+    registerPiece(piece) {
+      const pieceNodeType = {
+        type: `ap_${piece.name}`,
+        label: piece.displayName,
+        category: 'Integrations',
+        description: piece.description || `Integrations with ${piece.displayName}`,
+        inputs: [{ name: 'in', label: 'Input', type: 'any' }],
+        outputs: [{ name: 'out', label: 'Output', type: 'any' }],
+        configSchema: {
+          actionName: {
+            type: 'select',
+            label: 'Action',
+            options: Object.keys(piece.actions || {}),
+            default: Object.keys(piece.actions || {})[0] || ''
+          }
+        },
+        style: {
+          background: 'linear-gradient(135deg,#f97316,#ea580c)',
+          icon: piece.logoUrl ? `<img src="${piece.logoUrl}" style="width:16px;height:16px;object-fit:contain;border-radius:4px;" />` : null
+        },
+        _apPiece: piece
+      };
+      this.registerNodeType(pieceNodeType);
+    }
   };
 
-  /* ── Bind toolbar AFTER workflow API is created ── */
+  /* ── Bind toolbar and config AFTER workflow API is created ── */
   if (toolbar) toolbar.setWorkflow(workflow);
+  if (config) config.setWorkflow(workflow);
 
   return workflow;
 }

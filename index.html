@@ -127,6 +127,14 @@
       nodes: [customNode],
       canvasOptions: { snapToGrid: true, gridSize: 20 },
       minimap: true,
+      availableVariables: [
+        { name: 'user.email', label: 'User Email Address', type: 'string' },
+        { name: 'user.age', label: 'User Age', type: 'number' },
+        { name: 'form.title', label: 'Form Title', type: 'string' },
+        { name: 'form.submittedAt', label: 'Submission Timestamp', type: 'string' },
+        { name: 'payment.amount', label: 'Payment Amount', type: 'number' },
+        { name: 'payment.status', label: 'Payment Status', type: 'string' }
+      ],
 
       onNodeAdd: ({ node, position }) => toast(`✦ Node added: ${node.label}`, 'success'),
       onConnect: edge => toast(`⟶ Connected ${edge.fromPort} → ${edge.toPort}`, 'success'),
@@ -141,6 +149,51 @@
             `Adjacency: ${JSON.stringify(adj, null, 2)}\n\nIn-Degree: ${JSON.stringify(ind, null, 2)}`;
         }
       },
+    });
+
+    /* ── Register mock Activepieces pieces ── */
+    wf.registerPiece({
+      name: 'slack',
+      displayName: 'Slack',
+      description: 'Send messages, trigger workflows in Slack',
+      logoUrl: 'https://cdn-icons-png.flaticon.com/512/2111/2111615.png',
+      actions: {
+        send_message: {
+          displayName: 'Send Message',
+          description: 'Send a message to a Slack channel',
+          properties: {
+            channel: { type: 'SHORT_TEXT', displayName: 'Channel Name / ID', required: true, defaultValue: 'general' },
+            text: { type: 'LONG_TEXT', displayName: 'Message Body', required: true },
+            as_user: { type: 'CHECKBOX', displayName: 'Send as User', defaultValue: false }
+          }
+        },
+        create_channel: {
+          displayName: 'Create Channel',
+          description: 'Create a new public/private channel',
+          properties: {
+            name: { type: 'SHORT_TEXT', displayName: 'Channel Name', required: true },
+            is_private: { type: 'CHECKBOX', displayName: 'Is Private', defaultValue: false }
+          }
+        }
+      }
+    });
+
+    wf.registerPiece({
+      name: 'google_sheets',
+      displayName: 'Google Sheets',
+      description: 'Read or append row details in Google Sheets',
+      logoUrl: 'https://cdn-icons-png.flaticon.com/512/281/281762.png',
+      actions: {
+        append_row: {
+          displayName: 'Append Row',
+          description: 'Append a new row to your sheet',
+          properties: {
+            spreadsheet_id: { type: 'SHORT_TEXT', displayName: 'Spreadsheet ID', required: true },
+            sheet_name: { type: 'SHORT_TEXT', displayName: 'Sheet Name', defaultValue: 'Sheet1' },
+            values: { type: 'LONG_TEXT', displayName: 'Values (Comma separated or JSON array)', required: true }
+          }
+        }
+      }
     });
 
     /* ── Load a demo workflow ── */
