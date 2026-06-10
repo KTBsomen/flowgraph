@@ -127,6 +127,7 @@
       nodes: [customNode],
       canvasOptions: { snapToGrid: true, gridSize: 20 },
       minimap: true,
+      connectionId: 'user_account_123',
       availableVariables: [
         { name: 'user.email', label: 'User Email Address', type: 'string' },
         { name: 'user.age', label: 'User Age', type: 'number' },
@@ -151,50 +152,27 @@
       },
     });
 
-    /* ── Register mock Activepieces pieces ── */
-    wf.registerPiece({
-      name: 'slack',
-      displayName: 'Slack',
-      description: 'Send messages, trigger workflows in Slack',
-      logoUrl: 'https://cdn-icons-png.flaticon.com/512/2111/2111615.png',
-      actions: {
-        send_message: {
-          displayName: 'Send Message',
-          description: 'Send a message to a Slack channel',
-          properties: {
-            channel: { type: 'SHORT_TEXT', displayName: 'Channel Name / ID', required: true, defaultValue: 'general' },
-            text: { type: 'LONG_TEXT', displayName: 'Message Body', required: true },
-            as_user: { type: 'CHECKBOX', displayName: 'Send as User', defaultValue: false }
-          }
-        },
-        create_channel: {
-          displayName: 'Create Channel',
-          description: 'Create a new public/private channel',
-          properties: {
-            name: { type: 'SHORT_TEXT', displayName: 'Channel Name', required: true },
-            is_private: { type: 'CHECKBOX', displayName: 'Is Private', defaultValue: false }
-          }
-        }
-      }
-    });
+    /* ── Register Activepieces pieces dynamically ── */
+    async function loadActivepiecesPieces() {
+      try {
+        const response = await fetch('/api/pieces');
+        const pieces = await response.json();
+        console.log('Successfully fetched pieces from backend:', pieces);
 
-    wf.registerPiece({
-      name: 'google_sheets',
-      displayName: 'Google Sheets',
-      description: 'Read or append row details in Google Sheets',
-      logoUrl: 'https://cdn-icons-png.flaticon.com/512/281/281762.png',
-      actions: {
-        append_row: {
-          displayName: 'Append Row',
-          description: 'Append a new row to your sheet',
-          properties: {
-            spreadsheet_id: { type: 'SHORT_TEXT', displayName: 'Spreadsheet ID', required: true },
-            sheet_name: { type: 'SHORT_TEXT', displayName: 'Sheet Name', defaultValue: 'Sheet1' },
-            values: { type: 'LONG_TEXT', displayName: 'Values (Comma separated or JSON array)', required: true }
-          }
+        if (pieces && Array.isArray(pieces)) {
+          pieces.forEach(piece => {
+            wf.registerPiece(piece);
+          });
+          return;
         }
+      } catch (err) {
+        console.warn('Backend server not running or piece fetch failed. Registering mock pieces instead.', err);
       }
-    });
+
+      // Fallback mocks
+    }
+
+    loadActivepiecesPieces();
 
     /* ── Load a demo workflow ── */
     setTimeout(() => {
@@ -208,7 +186,7 @@
       wf.addEdge(s, 'out', a, 'in');
       wf.addEdge(a, 'out', api, 'in');
       wf.addEdge(api, 'success', e, 'in');
-      
+
       wf.fitToView();
     }, 150);
 

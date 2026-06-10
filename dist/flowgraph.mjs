@@ -64,7 +64,11 @@ var e = class {
 	}
 	serialize() {
 		return {
-			nodes: Array.from(this.nodes.values()),
+			nodes: Array.from(this.nodes.values()).map((e) => {
+				if (!e._apPiece) return e;
+				let { _apPiece: t, ...n } = e;
+				return n;
+			}),
 			edges: [...this.edges],
 			positions: Object.fromEntries(this.positions)
 		};
@@ -690,19 +694,10 @@ var e = class {
 			label: "False",
 			type: "any"
 		}],
-		configSchema: {
-			expression: {
-				type: "text",
-				label: "Condition",
-				default: "{{input}} > 0"
-			},
-			mode: {
-				type: "select",
-				label: "Mode",
-				options: ["expression", "javascript"],
-				default: "expression"
-			}
-		},
+		configSchema: { conditions: {
+			type: "condition_builder",
+			label: "Match Conditions"
+		} },
 		style: { background: "linear-gradient(135deg,#f59e0b,#d97706)" }
 	},
 	{
@@ -727,11 +722,9 @@ var e = class {
 					image: "https://images.unsplash.com/photo-1558494949-ef01091559ed?auto=format&fit=crop&q=80&w=400"
 				}
 			},
-			conditions: {
-				type: "code",
-				label: "Route Conditions (JS)",
-				default: "// return \"success\" or [\"success\", \"log\"]\nif (msg.payload > 10) return \"Success\";\nreturn \"Failure\";",
-				help: { text: "Write JavaScript logic to decide which route(s) to take. Return the name of the route." }
+			routeConditions: {
+				type: "router_conditions",
+				label: "Route Rules"
 			},
 			strategy: {
 				type: "select",
@@ -877,6 +870,7 @@ var e = class {
 	"Operations",
 	"Data",
 	"Integration",
+	"Integrations",
 	"Utilities"
 ], s = class {
 	constructor(e, t, n) {
@@ -888,14 +882,15 @@ var e = class {
 		}), this._renderList(), this._bindDrag();
 	}
 	_renderList() {
-		let e = this._filter, t = this.nodeTypes.filter((t) => t.label.toLowerCase().includes(e) || t.type.toLowerCase().includes(e) || (t.category || "").toLowerCase().includes(e)), n = {};
-		for (let e of o) n[e] = [];
+		let e = this._filter, t = this.nodeTypes.filter((t) => t.label.toLowerCase().includes(e) || t.type.toLowerCase().includes(e) || (t.description || "").toLowerCase().includes(e) || (t.category || "").toLowerCase().includes(e)), n = [...o], r = [...new Set(t.map((e) => e.category || "Other"))], i = [...n.filter((e) => r.includes(e)), ...r.filter((e) => !n.includes(e))], a = {};
+		for (let e of i) a[e] = [];
 		for (let e of t) {
 			let t = e.category || "Other";
-			n[t] || (n[t] = []), n[t].push(e);
+			a[t] || (a[t] = []), a[t].push(e);
 		}
 		this.listEl.innerHTML = "";
-		for (let [e, t] of Object.entries(n)) {
+		for (let e of i) {
+			let t = a[e] || [];
 			if (!t.length) continue;
 			let n = document.createElement("div");
 			n.className = "wf-category", n.innerHTML = `
@@ -910,12 +905,13 @@ var e = class {
 				n.classList.toggle("wf-category--collapsed");
 			});
 		}
+		this.listEl.children.length || (this.listEl.innerHTML = `<div style="padding:20px 14px;text-align:center;font-size:12px;color:var(--wf-text-muted)">No nodes match "${e}"</div>`);
 	}
 	_nodeItemHTML(e) {
-		let t = e.style?.background || "#6366f1";
+		let t = e.style?.background || "#6366f1", n = e.style?.icon || this._defaultIcon();
 		return `
       <div class="wf-node-item" draggable="true" data-type="${e.type}" title="${e.description || e.label}">
-        <div class="wf-node-item-icon" style="background:${t}">${e.style?.icon || this._defaultIcon()}</div>
+        <div class="wf-node-item-icon" style="background:${t}">${n}</div>
         <div class="wf-node-item-info">
           <div class="wf-node-item-label">${e.label}</div>
           <div class="wf-node-item-desc">${e.description || ""}</div>
@@ -948,7 +944,10 @@ var e = class {
 	}
 }, c = class {
 	constructor(e) {
-		this.container = e, this._nodeId = null, this._onChange = null, this._build();
+		this.container = e, this._nodeId = null, this._onChange = null, this._workflow = null, this._build();
+	}
+	setWorkflow(e) {
+		this._workflow = e;
 	}
 	_build() {
 		this.container.innerHTML = "\n      <div class=\"wf-config\">\n        <div class=\"wf-config-header\">\n          <span class=\"wf-config-title\">Properties</span>\n          <button class=\"wf-config-close\" title=\"Close\">✕</button>\n        </div>\n        <div class=\"wf-config-body\" id=\"wf-config-body\">\n          <div class=\"wf-config-empty\">\n            <svg viewBox=\"0 0 48 48\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\">\n              <rect x=\"8\" y=\"12\" width=\"32\" height=\"24\" rx=\"4\"/>\n              <path d=\"M16 20h16M16 28h10\"/>\n            </svg>\n            <p>Select a node to configure</p>\n          </div>\n        </div>\n      </div>\n    ", this.bodyEl = this.container.querySelector("#wf-config-body"), this.container.querySelector(".wf-config-close").addEventListener("click", () => {
@@ -979,6 +978,23 @@ var e = class {
 	}
 	_render(e) {
 		let t = e.configSchema || {}, n = e.config || {}, r = e.style || {}, i = r.background || "#6366f1";
+		if (e._apPiece && n.actionName) {
+			let r = e._apPiece.actions[n.actionName];
+			if (r && r.properties) {
+				t = { ...t };
+				for (let [e, n] of Object.entries(r.properties)) {
+					let r = "text";
+					n.type === "LONG_TEXT" ? r = "textarea" : n.type === "NUMBER" ? r = "number" : n.type === "CHECKBOX" ? r = "boolean" : n.type === "STATIC_DROPDOWN" ? r = "select" : n.type === "DYNAMIC_DROPDOWN" ? r = "dynamic-select" : n.type === "DYNAMIC" ? r = "textarea" : n.type === "JSON" && (r = "code"), t[e] = {
+						type: r,
+						label: n.displayName || e,
+						default: n.defaultValue || "",
+						placeholder: n.placeholder || "",
+						required: n.required || !1,
+						options: n.options ? (n.options.options || []).map((e) => e.value || e) : []
+					};
+				}
+			}
+		}
 		this.bodyEl.innerHTML = `
       <div class="wf-config-node-header" style="background:${i}">
         <div class="wf-config-node-icon">${r.icon || ""}</div>
@@ -996,10 +1012,56 @@ var e = class {
         </div>
       </div>
 
+      ${e._apPiece && e._apPiece.auth ? `
+        <div class="wf-config-section">
+          <div class="wf-config-section-title">Authentication</div>
+          <div class="wf-config-field" data-field="authConfig" style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:6px; margin-bottom:12px;">
+            <label style="font-weight:600; margin-bottom:8px; display:block; color:#1e293b;">Auth Provider: ${e._apPiece.displayName}</label>
+            
+            ${e._apPiece.auth.type === "OAUTH2" ? `
+              <div style="margin-bottom:8px;">
+                <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">Auth Method</span>
+                <select class="wf-input wf-auth-type" style="width:100%;">
+                  <option value="oauth2" ${(n.authConfig?.type || "oauth2") === "oauth2" ? "selected" : ""}>Self-Hosted OAuth (Popup)</option>
+                  <option value="direct" ${n.authConfig?.type === "direct" ? "selected" : ""}>Direct Access Token</option>
+                </select>
+              </div>
+
+              <div class="wf-auth-oauth2-fields" style="display:${(n.authConfig?.type || "oauth2") === "oauth2" ? "block" : "none"};">
+                <button type="button" class="wf-btn wf-btn-primary wf-oauth-connect-btn" style="width:100%; margin-top:8px; display:flex; justify-content:center; align-items:center; gap:8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg>
+                  Connect Account
+                </button>
+                <div class="wf-oauth-status" style="margin-top:6px; font-size:11px; color:#16a34a; display:${n.authConfig?.oauthConnected ? "block" : "none"};">
+                  ✓ Account Authorized & Connected
+                </div>
+              </div>
+
+              <div class="wf-auth-direct-fields" style="display:${n.authConfig?.type === "direct" ? "block" : "none"};">
+                <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">Raw Access Token</span>
+                <input type="password" class="wf-input wf-auth-raw-key" value="${n.authConfig?.rawApiKey || ""}" placeholder="Paste access token here...">
+              </div>
+            ` : `
+              <!-- Direct API Key auth, e.g. SECRET_TEXT for OpenAI -->
+              <input type="hidden" class="wf-auth-type" value="direct">
+              
+              ${e._apPiece.auth.description ? `
+                <div style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:12px; padding:10px; border-radius:6px; margin-bottom:10px; line-height:1.4;">
+                  ${e._apPiece.auth.description.replace(/\n/g, "<br>")}
+                </div>
+              ` : ""}
+              
+              <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">${e._apPiece.auth.displayName || "API Key"}</span>
+              <input type="password" class="wf-input wf-auth-raw-key" value="${n.authConfig?.rawApiKey || ""}" placeholder="Enter Key...">
+            `}
+          </div>
+        </div>
+      ` : ""}
+
       ${Object.keys(t).length ? `
         <div class="wf-config-section">
           <div class="wf-config-section-title">Configuration</div>
-          ${Object.entries(t).map(([e, t]) => this._fieldHTML(e, t, n[e])).join("")}
+          ${Object.entries(t).map(([e, t]) => this._fieldHTML(e, t, n[e], n)).join("")}
         </div>
       ` : ""}
 
@@ -1023,11 +1085,15 @@ var e = class {
         </div>
       ` : ""}
     `, this.bodyEl.querySelectorAll("[data-field]").forEach((e) => {
-			e.addEventListener("input", () => this._emitChange()), e.addEventListener("change", () => this._emitChange());
+			e.classList.contains("wf-condition-builder") || e.classList.contains("wf-router-conditions") || (e.addEventListener("input", (e) => {
+				!e.target.closest(".wf-condition-builder") && !e.target.closest(".wf-router-conditions") && this._emitChange();
+			}), e.addEventListener("change", (e) => {
+				!e.target.closest(".wf-condition-builder") && !e.target.closest(".wf-router-conditions") && this._emitChange();
+			}));
 		}), this.bodyEl.querySelectorAll(".wf-help-icon").forEach((e) => {
 			e.addEventListener("click", (e) => {
-				let n = t[e.currentTarget.dataset.helpKey];
-				n && this._showHelp(n);
+				let n = e.currentTarget.dataset.helpKey, r = t[n];
+				r && this._showHelp(r);
 			});
 		}), this.bodyEl.querySelectorAll(".wf-config-list").forEach((e) => {
 			let t = e.querySelector(".wf-config-list-add-btn"), n = e.querySelector(".wf-config-list-add input"), r = () => {
@@ -1044,31 +1110,336 @@ var e = class {
 			}), e.addEventListener("click", (e) => {
 				e.target.classList.contains("wf-config-list-remove") && (e.target.closest(".wf-config-list-item").remove(), this._emitChange());
 			});
+		}), this._bindConditionBuilders(), this._bindRouterBuilders(), this._bindVarPickers();
+		let a = this.bodyEl.querySelector(".wf-auth-type");
+		a && a.addEventListener("change", () => {
+			let e = a.value === "oauth2", t = this.bodyEl.querySelector(".wf-auth-oauth2-fields"), n = this.bodyEl.querySelector(".wf-auth-direct-fields");
+			t && (t.style.display = e ? "block" : "none"), n && (n.style.display = e ? "none" : "block"), this._emitChange();
+		});
+		let o = this.bodyEl.querySelector(".wf-auth-raw-key");
+		o && o.addEventListener("input", () => this._emitChange());
+		let s = this.bodyEl.querySelector(".wf-oauth-connect-btn");
+		if (s && s.addEventListener("click", () => {
+			let t = this._workflow?.connectionId || "default_connection", n = e._apPiece.name;
+			s.disabled = !0, s.innerText = "Authorizing...";
+			let r, i = (e) => {
+				if (e.data && e.data.type === "oauth-success" && e.data.connectionId === t) {
+					console.log(`[OAuth UI] Received success message for connection: ${t}`);
+					let e = this.bodyEl.querySelector(".wf-oauth-status");
+					e && (e.style.display = "block"), s.disabled = !1, s.innerHTML = "✓ Connected", this._node.config || (this._node.config = {}), this._node.config.authConfig || (this._node.config.authConfig = {}), this._node.config.authConfig.oauthConnected = !0, this._emitChange(), window.removeEventListener("message", i), r && clearInterval(r);
+				} else e.data && e.data.type === "oauth-error" && (console.error(`[OAuth UI] Received error message: ${e.data.error}`), alert(`Authentication failed: ${e.data.error}`), s.disabled = !1, s.innerHTML = "\n              <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6\"/></svg>\n              Connect Account\n            ", window.removeEventListener("message", i), r && clearInterval(r));
+			};
+			window.addEventListener("message", i);
+			let a = (window.innerWidth - 600) / 2 + window.screenX, o = (window.innerHeight - 650) / 2 + window.screenY, c = `/api/oauth/connect?pieceName=${encodeURIComponent(n)}&connectionId=${encodeURIComponent(t)}`, l = window.open(c, "OAuthPopup", `width=600,height=650,left=${a},top=${o},status=no,resizable=yes`);
+			r = setInterval(() => {
+				(!l || l.closed) && (clearInterval(r), window.removeEventListener("message", i), s.innerText === "Authorizing..." && (s.disabled = !1, s.innerHTML = "\n                <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6\"/></svg>\n                Connect Account\n              "));
+			}, 1e3);
+		}), this.bodyEl.querySelectorAll(".wf-dynamic-select").forEach((e) => {
+			let r = e.dataset.field || e.closest("[data-field]")?.dataset.field, i = e.id, a = t[r], o = n[r], s = () => {
+				this._loadDynamicDropdown(r, a, i, o);
+			};
+			e.addEventListener("focus", s), e.addEventListener("click", s), e.addEventListener("change", () => {
+				this._emitChange(), this.bodyEl.querySelectorAll(".wf-dynamic-select").forEach((t) => {
+					t !== e && delete t.dataset.loaded;
+				});
+			});
+		}), e._apPiece && e._apPiece.auth) {
+			let t = this._workflow?.connectionId || "default_connection";
+			fetch(`/api/oauth/status?connectionId=${encodeURIComponent(t)}&pieceName=${encodeURIComponent(e._apPiece.name)}`).then((e) => e.json()).then((n) => {
+				if (n.connected && n.pieceName === e._apPiece.name) {
+					if (console.log(`[Status Check] Existing connection found for: ${e._apPiece.name} (Global: ${n.isGlobal})`), n.isGlobal) {
+						let t = this.bodyEl.querySelector("[data-field=\"authConfig\"]");
+						t && (t.innerHTML = "\n                  <div style=\"display:flex; align-items:center; gap:8px; color:#16a34a; font-weight:600; font-size:12px; padding:4px 0;\">\n                    <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>\n                    <span>✓ Authenticated globally by system</span>\n                  </div>\n                "), e.config ||= {}, e.config.authConfig = {
+							type: "global",
+							connectionId: "global",
+							pieceName: e._apPiece.name,
+							oauthConnected: !0
+						}, this._emitChange();
+						return;
+					}
+					if (e._apPiece.auth.type === "OAUTH2") {
+						let n = this.bodyEl.querySelector(".wf-oauth-status");
+						n && (n.style.display = "block");
+						let r = this.bodyEl.querySelector(".wf-oauth-connect-btn");
+						r && (r.innerHTML = "✓ Connected"), e.config ||= {}, e.config.authConfig || (e.config.authConfig = {
+							type: "oauth2",
+							connectionId: t,
+							pieceName: e._apPiece.name
+						}), e.config.authConfig.oauthConnected = !0, this._emitChange();
+					}
+				} else if (e._apPiece.auth.type === "OAUTH2") {
+					let t = this.bodyEl.querySelector(".wf-oauth-status");
+					t && (t.style.display = "none");
+					let n = this.bodyEl.querySelector(".wf-oauth-connect-btn");
+					n && (n.innerHTML = "\n                  <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6\"/></svg>\n                  Connect Account\n                "), e.config && e.config.authConfig && e.config.authConfig.oauthConnected && (e.config.authConfig.oauthConnected = !1, this._emitChange());
+				}
+			});
+		}
+	}
+	_variablePickerHTML(e) {
+		return !this._workflow || !this._workflow.availableVariables || !this._workflow.availableVariables.length ? "" : `
+      <button type="button" class="wf-var-picker-btn" data-target="${e}" title="Insert Variable">
+        {x}
+      </button>
+    `;
+	}
+	_bindVarPickers() {
+		this.bodyEl.querySelectorAll(".wf-var-picker-btn").forEach((e) => {
+			e.addEventListener("click", (t) => {
+				t.stopPropagation();
+				let n = e.dataset.target, r = this.bodyEl.querySelector(`#${n}`);
+				if (!r) return;
+				let i = document.querySelector(".wf-var-popover");
+				i && i.remove();
+				let a = document.createElement("div");
+				a.className = "wf-var-popover", a.innerHTML = `
+          <div class="wf-var-popover-search">
+            <input type="text" placeholder="Search variables..." class="wf-var-search-input" autofocus>
+          </div>
+          <div class="wf-var-popover-list">
+            ${this._workflow.availableVariables.map((e) => `
+              <div class="wf-var-popover-item" data-var="${e.name}">
+                <span class="wf-var-item-label">${e.label}</span>
+                <span class="wf-var-item-name">{{${e.name}}}</span>
+              </div>
+            `).join("")}
+          </div>
+        `, document.body.appendChild(a);
+				let o = e.getBoundingClientRect();
+				a.style.top = `${o.bottom + window.scrollY + 5}px`, a.style.left = `${Math.max(10, o.left + window.scrollX - 120)}px`;
+				let s = a.querySelector(".wf-var-search-input"), c = a.querySelectorAll(".wf-var-popover-item");
+				s.focus(), s.addEventListener("input", (e) => {
+					let t = e.target.value.toLowerCase();
+					c.forEach((e) => {
+						let n = e.querySelector(".wf-var-item-label").textContent.toLowerCase(), r = e.querySelector(".wf-var-item-name").textContent.toLowerCase();
+						n.includes(t) || r.includes(t) ? e.style.display = "flex" : e.style.display = "none";
+					});
+				}), a.querySelectorAll(".wf-var-popover-item").forEach((e) => {
+					e.addEventListener("click", () => {
+						let t = `{{${e.dataset.var}}}`, n = r.selectionStart ?? r.value.length, i = r.selectionEnd ?? r.value.length, o = r.value;
+						r.value = o.substring(0, n) + t + o.substring(i), r.focus();
+						let s = n + t.length;
+						r.setSelectionRange(s, s), a.remove(), this._emitChange();
+					});
+				});
+				let l = (t) => {
+					!a.contains(t.target) && t.target !== e && (a.remove(), document.removeEventListener("mousedown", l));
+				};
+				document.addEventListener("mousedown", l);
+			});
 		});
 	}
-	_emitChange() {
-		if (!this._onChange) return;
-		let e = {};
-		this.bodyEl.querySelectorAll("[data-field]").forEach((t) => {
-			let n = t.dataset.field;
-			t.classList.contains("wf-config-list") ? e[n] = Array.from(t.querySelectorAll(".wf-config-list-item-text")).map((e) => e.textContent) : t.type === "checkbox" ? e[n] = t.checked : e[n] = t.value;
-		}), this._onChange(this._nodeId, e);
+	_conditionRuleHTML(e, t, n = "") {
+		let r = this._workflow?.availableVariables || [], i = e.field || "", a = e.operator || "equals", o = e.value === void 0 ? "" : e.value, s = [
+			{
+				value: "equals",
+				label: "Equals"
+			},
+			{
+				value: "not_equals",
+				label: "Does Not Equal"
+			},
+			{
+				value: "greater_than",
+				label: "Greater Than"
+			},
+			{
+				value: "less_than",
+				label: "Less Than"
+			},
+			{
+				value: "contains",
+				label: "Contains"
+			},
+			{
+				value: "starts_with",
+				label: "Starts With"
+			},
+			{
+				value: "ends_with",
+				label: "Ends With"
+			},
+			{
+				value: "is_empty",
+				label: "Is Empty"
+			},
+			{
+				value: "is_not_empty",
+				label: "Is Not Empty"
+			}
+		], c = r.some((e) => e.name === i);
+		return `
+      <div class="wf-cb-rule-row" data-index="${t}">
+        <div class="wf-cb-rule-inputs">
+          <div class="wf-cb-field-selector-wrap">
+            <select class="wf-input wf-cb-field-select">
+              <option value="">-- Select Field --</option>
+              ${r.map((e) => `
+                <option value="${e.name}" ${e.name === i ? "selected" : ""}>${e.label}</option>
+              `).join("")}
+              <option value="__custom__" ${!c && i !== "" ? "selected" : ""}>Custom Path...</option>
+            </select>
+            
+            <input type="text" class="wf-input wf-cb-custom-field-input" 
+                   value="${!c && i !== "" ? i : ""}" 
+                   placeholder="e.g. user.profile.age"
+                   style="display: ${!c && i !== "" ? "block" : "none"}; margin-top: 4px;">
+          </div>
+          
+          <select class="wf-input wf-cb-operator-select">
+            ${s.map((e) => `
+              <option value="${e.value}" ${e.value === a ? "selected" : ""}>${e.label}</option>
+            `).join("")}
+          </select>
+          
+          <div class="wf-cb-value-wrap" style="display: ${a === "is_empty" || a === "is_not_empty" ? "none" : "block"}">
+            <input type="text" class="wf-input wf-cb-value-input" value="${o}" placeholder="Value...">
+          </div>
+        </div>
+        <button type="button" class="wf-cb-remove-btn">✕</button>
+      </div>
+    `;
 	}
-	_fieldHTML(e, t, n) {
-		let r = n === void 0 ? t.default ?? "" : n, i = `wf-field-${e}`, a = t.help ? `<span class="wf-help-icon" data-help-key="${e}" title="Get help">?</span>` : "", o = (n) => `
-      <div class="wf-config-field">
+	_bindConditionBuilders() {
+		this.bodyEl.querySelectorAll(".wf-condition-builder").forEach((e) => {
+			let t = e.querySelector(".wf-cb-rules"), n = e.querySelector(".wf-cb-add-btn");
+			e.querySelectorAll(".wf-cb-op-btn").forEach((t) => {
+				t.addEventListener("click", () => {
+					e.querySelectorAll(".wf-cb-op-btn").forEach((e) => e.classList.remove("active")), t.classList.add("active"), this._emitChange();
+				});
+			}), n.addEventListener("click", () => {
+				let e = t.querySelectorAll(".wf-cb-rule-row").length, n = {
+					field: "",
+					operator: "equals",
+					value: ""
+				}, r = t.querySelector(".wf-cb-empty");
+				r && r.remove();
+				let i = document.createElement("div");
+				i.innerHTML = this._conditionRuleHTML(n, e);
+				let a = i.firstElementChild;
+				t.appendChild(a), this._bindRuleRowEvents(a), this._emitChange();
+			}), t.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
+				this._bindRuleRowEvents(e);
+			});
+		});
+	}
+	_bindRuleRowEvents(e) {
+		let t = e.querySelector(".wf-cb-field-select"), n = e.querySelector(".wf-cb-custom-field-input"), r = e.querySelector(".wf-cb-operator-select"), i = e.querySelector(".wf-cb-value-wrap"), a = e.querySelector(".wf-cb-remove-btn");
+		t.addEventListener("change", () => {
+			t.value === "__custom__" ? (n.style.display = "block", n.focus()) : (n.style.display = "none", n.value = ""), this._emitChange();
+		}), n.addEventListener("input", () => this._emitChange()), r.addEventListener("change", () => {
+			r.value === "is_empty" || r.value === "is_not_empty" ? i.style.display = "none" : i.style.display = "block", this._emitChange();
+		}), e.querySelector(".wf-cb-value-input")?.addEventListener("input", () => this._emitChange()), a.addEventListener("click", () => {
+			let t = e.parentElement;
+			e.remove(), t.querySelectorAll(".wf-cb-rule-row").forEach((e, t) => {
+				e.dataset.index = t;
+			}), t.querySelectorAll(".wf-cb-rule-row").length === 0 && (t.innerHTML = "<div class=\"wf-cb-empty\">No conditions defined yet. Add one below to filter.</div>"), this._emitChange();
+		});
+	}
+	_bindRouterBuilders() {
+		this.bodyEl.querySelectorAll(".wf-router-conditions").forEach((e) => {
+			e.querySelectorAll(".wf-cb-op-btn").forEach((e) => {
+				e.addEventListener("click", () => {
+					e.closest(".wf-router-route-card").querySelectorAll(".wf-cb-op-btn").forEach((e) => e.classList.remove("active")), e.classList.add("active"), this._emitChange();
+				});
+			}), e.querySelectorAll(".wf-router-add-rule-btn").forEach((e) => {
+				e.addEventListener("click", () => {
+					let t = e.closest(".wf-router-route-card").querySelector(".wf-cb-rules"), n = e.dataset.route, r = t.querySelector(".wf-cb-empty");
+					r && r.remove();
+					let i = t.querySelectorAll(".wf-cb-rule-row").length, a = {
+						field: "",
+						operator: "equals",
+						value: ""
+					}, o = document.createElement("div");
+					o.innerHTML = this._conditionRuleHTML(a, i, `route_${n}`);
+					let s = o.firstElementChild;
+					t.appendChild(s), this._bindRuleRowEvents(s), this._emitChange();
+				});
+			}), e.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
+				this._bindRuleRowEvents(e);
+			});
+		});
+	}
+	_fieldHTML(e, t, n, r) {
+		let i = n === void 0 ? t.default ?? "" : n, a = `wf-field-${e}`, o = t.type === "text" || t.type === "textarea" || t.type === "code" || t.type === "number" ? this._variablePickerHTML(a) : "", s = t.help ? `<span class="wf-help-icon" data-help-key="${e}" title="Get help">?</span>` : "", c = (n) => `
+      <div class="wf-config-field" style="position: relative;">
         <div class="wf-config-field-label-row">
-          <label for="${i}">${t.label || e}</label>
-          ${a}
+          <label for="${a}">${t.label || e}</label>
+          <div class="wf-config-field-actions">
+            ${o}
+            ${s}
+          </div>
         </div>
         ${n}
       </div>
     `;
 		switch (t.type) {
-			case "list": return o(`
-          <div class="wf-config-list" id="${i}" data-field="${e}">
+			case "condition_builder":
+				let n = i && typeof i == "object" ? i : {
+					logicalOperator: "AND",
+					rules: []
+				}, o = Array.isArray(n.rules) ? n.rules : [], s = n.logicalOperator || "AND";
+				return c(`
+          <div class="wf-condition-builder" id="${a}" data-field="${e}">
+            <div class="wf-cb-header">
+              <span class="wf-cb-desc">Match if</span>
+              <div class="wf-cb-operator-toggle">
+                <button type="button" class="wf-cb-op-btn ${s === "AND" ? "active" : ""}" data-op="AND">ALL (AND)</button>
+                <button type="button" class="wf-cb-op-btn ${s === "OR" ? "active" : ""}" data-op="OR">ANY (OR)</button>
+              </div>
+            </div>
+            
+            <div class="wf-cb-rules">
+              ${o.map((e, t) => this._conditionRuleHTML(e, t)).join("")}
+              ${o.length === 0 ? "\n                <div class=\"wf-cb-empty\">No conditions defined yet. Add one below to filter.</div>\n              " : ""}
+            </div>
+            
+            <button type="button" class="wf-cb-add-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Condition
+            </button>
+          </div>
+        `);
+			case "router_conditions":
+				let l = r.routes || [], u = i && typeof i == "object" ? i : {};
+				return c(`
+          <div class="wf-router-conditions" id="${a}" data-field="${e}">
+            ${l.map((e) => {
+					let t = u[e] || {
+						logicalOperator: "AND",
+						rules: []
+					}, n = Array.isArray(t.rules) ? t.rules : [], r = t.logicalOperator || "AND";
+					return `
+                <div class="wf-router-route-card" data-route="${e}">
+                  <div class="wf-router-route-title">
+                    <span class="wf-router-route-badge">IF ROUTE</span>
+                    <strong>${e}</strong>
+                  </div>
+                  <div class="wf-cb-header">
+                    <span class="wf-cb-desc">Match if</span>
+                    <div class="wf-cb-operator-toggle">
+                      <button type="button" class="wf-cb-op-btn ${r === "AND" ? "active" : ""}" data-op="AND">ALL</button>
+                      <button type="button" class="wf-cb-op-btn ${r === "OR" ? "active" : ""}" data-op="OR">ANY</button>
+                    </div>
+                  </div>
+                  
+                  <div class="wf-cb-rules">
+                    ${n.map((t, n) => this._conditionRuleHTML(t, n, `route_${e}`)).join("")}
+                    ${n.length === 0 ? "\n                      <div class=\"wf-cb-empty\">Always routing here (no conditions defined).</div>\n                    " : ""}
+                  </div>
+                  
+                  <button type="button" class="wf-router-add-rule-btn" data-route="${e}">
+                    + Add Rule
+                  </button>
+                </div>
+              `;
+				}).join("")}
+          </div>
+        `);
+			case "list": return c(`
+          <div class="wf-config-list" id="${a}" data-field="${e}">
             <div class="wf-config-list-items">
-              ${(Array.isArray(r) ? r : []).map((e) => `
+              ${(Array.isArray(i) ? i : []).map((e) => `
                 <div class="wf-config-list-item">
                   <span class="wf-config-list-item-text">${e}</span>
                   <button class="wf-config-list-remove">✕</button>
@@ -1082,31 +1453,161 @@ var e = class {
             ${t.description ? `<div class="wf-config-list-description">${t.description}</div>` : ""}
           </div>
         `);
-			case "textarea": return o(`<textarea id="${i}" class="wf-input wf-textarea" data-field="${e}" rows="3">${r}</textarea>`);
-			case "code": return o(`<textarea id="${i}" class="wf-input wf-code" data-field="${e}" rows="4" spellcheck="false">${r}</textarea>`);
-			case "number": return o(`<input type="number" id="${i}" class="wf-input" data-field="${e}" value="${r}">`);
-			case "boolean": return o(`
-          <label class="wf-toggle">
-            <input type="checkbox" id="${i}" data-field="${e}" ${r ? "checked" : ""}>
+			case "textarea": return c(`<textarea id="${a}" class="wf-input wf-textarea" data-field="${e}" rows="3">${i}</textarea>`);
+			case "code": return c(`<textarea id="${a}" class="wf-input wf-code" data-field="${e}" rows="4" spellcheck="false">${i}</textarea>`);
+			case "number": return c(`<input type="number" id="${a}" class="wf-input" data-field="${e}" value="${i}">`);
+			case "boolean": return c(`
+          <label class="wf-toggle" data-field="${e}">
+            <input type="checkbox" id="${a}" ${i ? "checked" : ""}>
             <span class="wf-toggle-track"></span>
           </label>
         `);
-			case "select": return o(`
-          <select id="${i}" class="wf-input wf-select" data-field="${e}">
-            ${(t.options || []).map((e) => `<option value="${e}" ${e === r ? "selected" : ""}>${e}</option>`).join("")}
+			case "select": return c(`
+          <select id="${a}" class="wf-input wf-select" data-field="${e}">
+            ${(t.options || []).map((e) => `<option value="${e}" ${e === i ? "selected" : ""}>${e}</option>`).join("")}
           </select>
         `);
-			case "color": return o(`<input type="color" id="${i}" class="wf-input wf-color" data-field="${e}" value="${r}">`);
-			default: return o(`<input type="text" id="${i}" class="wf-input" data-field="${e}" value="${r}" placeholder="${t.placeholder || ""}">`);
+			case "dynamic-select": return c(`
+          <select id="${a}" class="wf-input wf-select wf-dynamic-select" data-field="${e}">
+            <option value="">-- Click to Load / Select --</option>
+            ${i ? `<option value="${i}" selected>${i}</option>` : ""}
+          </select>
+        `);
+			case "color": return c(`<input type="color" id="${a}" class="wf-input wf-color" data-field="${e}" value="${i}">`);
+			default: return c(`<input type="text" id="${a}" class="wf-input" data-field="${e}" value="${i}" placeholder="${t.placeholder || ""}">`);
 		}
 	}
 	_emitChange() {
 		if (!this._onChange) return;
+		let e = {}, t = { ...this._node.configSchema || {} };
+		if (this._node._apPiece && this._node.config?.actionName) {
+			let e = this._node._apPiece.actions[this._node.config.actionName];
+			if (e && e.properties) for (let [n, r] of Object.entries(e.properties)) {
+				let e = "text";
+				r.type === "LONG_TEXT" ? e = "textarea" : r.type === "NUMBER" ? e = "number" : r.type === "CHECKBOX" ? e = "boolean" : r.type === "STATIC_DROPDOWN" ? e = "select" : r.type === "DYNAMIC_DROPDOWN" ? e = "dynamic-select" : r.type === "DYNAMIC" ? e = "textarea" : r.type === "JSON" && (e = "code"), t[n] = { type: e };
+			}
+		}
+		let n = this.bodyEl.querySelector(".wf-auth-type");
+		if (n) {
+			let t = this._node.config?.authConfig?.oauthConnected || !1;
+			e.authConfig = {
+				type: n.value,
+				connectionId: this._workflow?.connectionId || "default_connection",
+				clientId: this.bodyEl.querySelector(".wf-auth-client-id")?.value || "",
+				clientSecret: this.bodyEl.querySelector(".wf-auth-client-secret")?.value || "",
+				rawApiKey: this.bodyEl.querySelector(".wf-auth-raw-key")?.value || "",
+				pieceName: this._node._apPiece.name,
+				oauthConnected: t
+			};
+		}
+		for (let [n, r] of Object.entries(t)) {
+			let t = this.bodyEl.querySelector(`[data-field="${n}"]`);
+			if (t) if (r.type === "list") e[n] = Array.from(t.querySelectorAll(".wf-config-list-item-text")).map((e) => e.textContent);
+			else if (r.type === "boolean") {
+				let r = t.querySelector("input[type=\"checkbox\"]");
+				e[n] = r ? r.checked : !1;
+			} else if (r.type === "condition_builder") {
+				let r = t.querySelector(".wf-cb-op-btn.active")?.dataset.op || "AND", i = [];
+				t.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
+					let t = e.querySelector(".wf-cb-field-select").value, n = e.querySelector(".wf-cb-custom-field-input").value.trim(), r = t === "__custom__" ? n : t, a = e.querySelector(".wf-cb-operator-select").value, o = e.querySelector(".wf-cb-value-input")?.value || "";
+					r && i.push({
+						field: r,
+						operator: a,
+						value: o
+					});
+				}), e[n] = {
+					logicalOperator: r,
+					rules: i
+				}, e.expression = this._compileRulesToJS(r, i);
+			} else if (r.type === "router_conditions") {
+				let r = {};
+				t.querySelectorAll(".wf-router-route-card").forEach((e) => {
+					let t = e.dataset.route, n = e.querySelector(".wf-cb-op-btn.active")?.dataset.op || "AND", i = [];
+					e.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
+						let t = e.querySelector(".wf-cb-field-select").value, n = e.querySelector(".wf-cb-custom-field-input").value.trim(), r = t === "__custom__" ? n : t, a = e.querySelector(".wf-cb-operator-select").value, o = e.querySelector(".wf-cb-value-input")?.value || "";
+						r && i.push({
+							field: r,
+							operator: a,
+							value: o
+						});
+					}), r[t] = {
+						logicalOperator: n,
+						rules: i
+					};
+				}), e[n] = r;
+			} else e[n] = (t.querySelector("input, select, textarea") || t).value;
+		}
+		let r = this.bodyEl.querySelector("[data-field=\"actionName\"] select");
+		r && (e.actionName = r.value), this._onChange(this._nodeId, e);
+	}
+	_compileRulesToJS(e, t) {
+		if (!t || !t.length) return "true";
+		let n = t.map((e) => {
+			let t = e.field || "input", n = e.operator, r = e.value || "", i = t.split(".").map((e, t) => t === 0 ? e : `['${e}']`).join(""), a = JSON.stringify(r);
+			switch (n) {
+				case "equals": return `String(${i}) === ${a}`;
+				case "not_equals": return `String(${i}) !== ${a}`;
+				case "greater_than": return `Number(${i}) > ${Number(r) || 0}`;
+				case "less_than": return `Number(${i}) < ${Number(r) || 0}`;
+				case "contains": return `String(${i}).toLowerCase().includes(${a}.toLowerCase())`;
+				case "starts_with": return `String(${i}).startsWith(${a})`;
+				case "ends_with": return `String(${i}).endsWith(${a})`;
+				case "is_empty": return `!${i}`;
+				case "is_not_empty": return `!!${i}`;
+				default: return "true";
+			}
+		}), r = e === "OR" ? " || " : " && ";
+		return n.join(r);
+	}
+	_gatherCurrentConfig() {
 		let e = {};
-		this.bodyEl.querySelectorAll("[data-field]").forEach((t) => {
+		return this.bodyEl.querySelectorAll("[data-field]").forEach((t) => {
 			let n = t.dataset.field;
-			t.type === "checkbox" ? e[n] = t.checked : e[n] = t.value;
-		}), this._onChange(this._nodeId, e);
+			if (!n || n === "authConfig") return;
+			let r = t.tagName.toLowerCase();
+			if (r === "input" || r === "select" || r === "textarea") {
+				e[n] = t.value;
+				return;
+			}
+			let i = t.querySelector("input, select, textarea");
+			i && (i.type === "checkbox" ? e[n] = i.checked : e[n] = i.value);
+		}), e;
+	}
+	async _loadDynamicDropdown(e, t, n, r) {
+		let i = this.bodyEl.querySelector(`#${n}`);
+		if (!i || i.dataset.loaded === "true" || i.dataset.loading === "true") return;
+		i.dataset.loading = "true";
+		let a = this._gatherCurrentConfig(), o = a[e] || r, s = {};
+		for (let [t, n] of Object.entries(a)) t !== e && t !== "actionName" && (n === "" || n == null || typeof n == "string" && n.startsWith("Loading") || (s[t] = n));
+		i.innerHTML = "<option>Loading options...</option>";
+		try {
+			let t = this.bodyEl.querySelector(".wf-auth-type"), n = {
+				type: t ? t.value : "direct",
+				connectionId: this._workflow?.connectionId || "default_connection",
+				rawApiKey: this.bodyEl.querySelector(".wf-auth-raw-key")?.value || "",
+				pieceName: this._node._apPiece.name
+			}, r = a.actionName || this._node.config?.actionName;
+			console.log(`[Dynamic Dropdown] Loading "${e}" for action "${r}" with propsValue:`, s);
+			let c = await (await fetch("/api/options", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					pieceName: this._node._apPiece.name,
+					actionName: r,
+					propertyName: e,
+					authConfig: n,
+					propsValue: s
+				})
+			})).json();
+			if (i.dataset.loading = "false", c.error) throw Error(c.error);
+			if (c.disabled) {
+				i.innerHTML = `<option value="">${c.placeholder || "Select a prerequisite first"}</option>`;
+				return;
+			}
+			i.innerHTML = "<option value=\"\">-- Select an option --</option>" + (c.options || []).map((e) => `<option value="${e.value}" ${e.value === o ? "selected" : ""}>${e.label || e.value}</option>`).join(""), i.dataset.loaded = "true";
+		} catch (e) {
+			i.dataset.loading = "false", console.error("Failed to load dynamic options:", e), i.innerHTML = `<option value="">Failed to load: ${e.message}</option>`;
+		}
 	}
 }, l = class {
 	constructor(e) {
@@ -1116,7 +1617,7 @@ var e = class {
 		this.workflow = e, this._bindWorkflowEvents();
 	}
 	_buildShell() {
-		this.container.innerHTML = "\n      <div class=\"wf-toolbar\">\n        <div class=\"wf-toolbar-group\">\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-in\"   title=\"Zoom In (=)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.35-4.35M11 8v6M8 11h6\"/></svg>\n          </button>\n          <div class=\"wf-zoom-display\" id=\"wf-zoom-display\">100%</div>\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-out\"  title=\"Zoom Out (-)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.35-4.35M8 11h6\"/></svg>\n          </button>\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-fit\"  title=\"Fit to view (F)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3\"/></svg>\n          </button>\n        </div>\n        <div class=\"wf-toolbar-divider\"></div>\n        <div class=\"wf-toolbar-group\">\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"clear\"     title=\"Clear canvas\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg>\n          </button>\n          <button class=\"wf-btn wf-btn--primary\" data-action=\"export\" title=\"Export JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>\n            Export\n          </button>\n          <button class=\"wf-btn wf-btn--ghost\"   data-action=\"import\" title=\"Import JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>\n            Import\n          </button>\n        </div>\n        <div class=\"wf-toolbar-divider\"></div>\n        <div class=\"wf-toolbar-group wf-toolbar-group--info\">\n          <span class=\"wf-stat\" id=\"wf-stat-nodes\">0 nodes</span>\n          <span class=\"wf-stat\" id=\"wf-stat-edges\">0 edges</span>\n          <div class=\"wf-graph-status\" id=\"wf-graph-status\" title=\"Graph status\">\n            <svg viewBox=\"0 0 12 12\" fill=\"currentColor\"><circle cx=\"6\" cy=\"6\" r=\"5\"/></svg>\n            Valid\n          </div>\n        </div>\n      </div>\n      <input type=\"file\" id=\"wf-import-input\" accept=\".json\" style=\"display:none\">\n    ", this.container.querySelectorAll("[data-action]").forEach((e) => {
+		this.container.innerHTML = "\n      <div class=\"wf-toolbar\">\n        <div class=\"wf-toolbar-group\">\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-in\"   title=\"Zoom In (=)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.35-4.35M11 8v6M8 11h6\"/></svg>\n          </button>\n          <div class=\"wf-zoom-display\" id=\"wf-zoom-display\">100%</div>\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-out\"  title=\"Zoom Out (-)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.35-4.35M8 11h6\"/></svg>\n          </button>\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-fit\"  title=\"Fit to view (F)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3\"/></svg>\n          </button>\n        </div>\n        <div class=\"wf-toolbar-divider\"></div>\n        <div class=\"wf-toolbar-group\">\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"clear\"     title=\"Clear canvas\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg>\n          </button>\n          <button class=\"wf-btn wf-btn--primary\" data-action=\"export\" title=\"Export JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>\n            Export\n          </button>\n          <button class=\"wf-btn wf-btn--ghost\"   data-action=\"import\" title=\"Import JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>\n            Import\n          </button>\n          <button class=\"wf-btn wf-btn--success\" data-action=\"run-flow\" title=\"Run Flow\" style=\"background:#10b981; color:#fff; border:none; display:flex; align-items:center; gap:6px;\">\n            <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>\n            Run Flow\n          </button>\n        </div>\n        <div class=\"wf-toolbar-divider\"></div>\n        <div class=\"wf-toolbar-group wf-toolbar-group--info\">\n          <span class=\"wf-stat\" id=\"wf-stat-nodes\">0 nodes</span>\n          <span class=\"wf-stat\" id=\"wf-stat-edges\">0 edges</span>\n          <div class=\"wf-graph-status\" id=\"wf-graph-status\" title=\"Graph status\">\n            <svg viewBox=\"0 0 12 12\" fill=\"currentColor\"><circle cx=\"6\" cy=\"6\" r=\"5\"/></svg>\n            Valid\n          </div>\n        </div>\n      </div>\n      <input type=\"file\" id=\"wf-import-input\" accept=\".json\" style=\"display:none\">\n    ", this.container.querySelectorAll("[data-action]").forEach((e) => {
 			e.addEventListener("click", () => this._handleAction(e.dataset.action));
 		}), this.importInput = this.container.querySelector("#wf-import-input"), this.importInput.addEventListener("change", (e) => this._handleImport(e));
 	}
@@ -1148,6 +1649,9 @@ var e = class {
 				break;
 			case "import":
 				this.importInput.click();
+				break;
+			case "run-flow":
+				this._runFlow();
 				break;
 		}
 	}
@@ -1181,6 +1685,38 @@ var e = class {
 		window.addEventListener("keydown", (e) => {
 			this.workflow && (e.target.matches("input,textarea,select") || ((e.key === "=" || e.key === "+") && this._zoom(1.15), e.key === "-" && this._zoom(.87), (e.key === "f" || e.key === "F") && this.workflow.fitToView(), (e.key === "Delete" || e.key === "Backspace") && this.workflow.deleteSelected(), (e.ctrlKey || e.metaKey) && e.key === "z" && e.preventDefault()));
 		});
+	}
+	async _runFlow() {
+		if (!this.workflow) return;
+		let e = this.container.querySelector("[data-action=\"run-flow\"]");
+		e && (e.disabled = !0, e.innerHTML = "Running...");
+		try {
+			let e = this.workflow.state.serialize(), t = await (await fetch("/api/execute-flow", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					graph: e,
+					globalVariables: {
+						"user.email": "test@nango.dev",
+						"user.age": 28,
+						"form.title": "Customer Signup Form",
+						"form.submittedAt": (/* @__PURE__ */ new Date()).toISOString(),
+						"payment.amount": 99,
+						"payment.status": "success"
+					}
+				})
+			})).json();
+			if (t.success) alert("✓ Workflow executed successfully!");
+			else {
+				let e = t.logs.find((e) => e.status === "failed");
+				alert(`✕ Flow execution failed at ${e?.nodeLabel || "node"}: ${e?.error || "Unknown error"}`);
+			}
+			console.log("Execution Logs:", t.logs);
+		} catch (e) {
+			console.error("Flow Execution Error:", e), alert("Failed to execute flow: " + e.message);
+		} finally {
+			e && (e.disabled = !1, e.innerHTML = "\n          <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>\n          Run Flow\n        ");
+		}
 	}
 }, u = class {
 	constructor(e, t, n) {
@@ -1234,107 +1770,145 @@ var e = class {
 		this.canvas.centerOn(u, d);
 	}
 }, d = 0, f = (e) => `${e}_${++d}_${Date.now().toString(36)}`;
-function p(o = {}) {
-	let { container: d, nodes: p = [], canvasOptions: m = {}, minimap: h = !0, readOnly: g = !1, onEdit: _ = null } = o;
+function p(e) {
+	let t = [], n = (e, r = "") => {
+		for (let [i, a] of Object.entries(e)) {
+			let e = r ? `${r}.${i}` : i;
+			a && typeof a == "object" && !Array.isArray(a) ? n(a, e) : t.push({
+				name: e,
+				label: e.split(".").map((e) => e.charAt(0).toUpperCase() + e.slice(1)).join(" "),
+				type: typeof a == "object" ? "string" : typeof a
+			});
+		}
+	};
+	if (Array.isArray(e)) for (let r of e) r && typeof r == "object" && r.name ? t.push(r) : r && typeof r == "object" && n(r);
+	else e && typeof e == "object" && n(e);
+	return t;
+}
+function m(o = {}) {
+	let { container: d, nodes: m = [], canvasOptions: h = {}, minimap: g = !0, readOnly: _ = !1, onEdit: v = null, availableVariables: y = [], connectionId: b = "default_connection" } = o;
 	if (!d) throw Error("[Workflow] container is required");
-	let v = [...a, ...p], y = new Map(v.map((e) => [e.type, e]));
+	let x = [...a, ...m], S = new Map(x.map((e) => [e.type, e]));
 	d.innerHTML = `
-    <div class="wf-layout ${g ? "wf-layout--readonly" : ""}">
-      ${g ? "" : "<div class=\"wf-toolbar-wrap\" id=\"wf-toolbar-wrap\"></div>"}
+    <div class="wf-layout ${_ ? "wf-layout--readonly" : ""}">
+      ${_ ? "" : "<div class=\"wf-toolbar-wrap\" id=\"wf-toolbar-wrap\"></div>"}
       <div class="wf-main">
-        ${g ? "" : "<div class=\"wf-sidebar-wrap\"  id=\"wf-sidebar-wrap\"></div>"}
+        ${_ ? "" : "<div class=\"wf-sidebar-wrap\"  id=\"wf-sidebar-wrap\"></div>"}
         <div class="wf-canvas-wrap"   id="wf-canvas-wrap"></div>
-        ${g ? "" : "<div class=\"wf-config-wrap\"   id=\"wf-config-wrap\"></div>"}
+        ${_ ? "" : "<div class=\"wf-config-wrap\"   id=\"wf-config-wrap\"></div>"}
       </div>
-      ${g && _ ? "\n        <button class=\"wf-edit-btn\" id=\"wf-edit-btn\">\n          <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg>\n          Edit Workflow\n        </button>\n      " : ""}
+      ${_ && v ? "\n        <button class=\"wf-edit-btn\" id=\"wf-edit-btn\">\n          <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg>\n          Edit Workflow\n        </button>\n      " : ""}
     </div>
   `;
-	let b = d.querySelector("#wf-toolbar-wrap"), x = d.querySelector("#wf-sidebar-wrap"), S = d.querySelector("#wf-canvas-wrap"), C = d.querySelector("#wf-config-wrap"), w = d.querySelector("#wf-edit-btn");
-	w && _ && w.addEventListener("click", () => _());
-	let T = new e(), E = new t(S, m), D = new r(T), O = new n(E, T, D, g), k = new i(E, T, O, g), A, j, M;
-	g || (A = new s(x, v, N), j = new c(C), M = new l(b)), h && new u(S, E, T), S.addEventListener("dragover", (e) => {
+	let C = d.querySelector("#wf-toolbar-wrap"), w = d.querySelector("#wf-sidebar-wrap"), T = d.querySelector("#wf-canvas-wrap"), E = d.querySelector("#wf-config-wrap"), D = d.querySelector("#wf-edit-btn");
+	D && v && D.addEventListener("click", () => v());
+	let O = new e(), k = new t(T, h), A = new r(O), j = new n(k, O, A, _), M = new i(k, O, j, _), N, P, F;
+	_ || (N = new s(w, x, I), P = new c(E), F = new l(C)), g && new u(T, k, O), T.addEventListener("dragover", (e) => {
 		e.dataTransfer.types.includes("wf-node-type") && (e.preventDefault(), e.dataTransfer.dropEffect = "copy");
-	}), S.addEventListener("drop", (e) => {
+	}), T.addEventListener("drop", (e) => {
 		let t = e.dataTransfer.getData("wf-node-type");
 		if (!t) return;
 		e.preventDefault();
-		let n = E.screenToCanvas(e.clientX, e.clientY);
-		N(t, E.snapPoint(n.x - 90, n.y - 40));
+		let n = k.screenToCanvas(e.clientX, e.clientY);
+		I(t, k.snapPoint(n.x - 90, n.y - 40));
 	});
-	function N(e, t, n = !1) {
-		let r = y.get(e);
+	function I(e, t, n = !1) {
+		let r = S.get(e);
 		if (!r) {
 			console.warn("[Workflow] Unknown node type:", e);
 			return;
 		}
 		let i = t;
 		if (n) {
-			let e = S.getBoundingClientRect(), t = E.screenToCanvas(e.left + e.width / 2, e.top + e.height / 2);
-			i = E.snapPoint(t.x - 90, t.y - 40);
+			let e = T.getBoundingClientRect(), t = k.screenToCanvas(e.left + e.width / 2, e.top + e.height / 2);
+			i = k.snapPoint(t.x - 90, t.y - 40);
 		}
-		let a = Object.fromEntries(Object.entries(r.configSchema || {}).map(([e, t]) => [e, t.default ?? ""])), o = {
+		let a = {};
+		for (let [e, t] of Object.entries(r.configSchema || {})) t.type === "condition_builder" ? a[e] = {
+			logicalOperator: "AND",
+			rules: []
+		} : t.type === "router_conditions" ? a[e] = {} : a[e] = t.default ?? "";
+		let o = r._apPiece, s = {
 			...structuredClone(r),
 			id: f(e),
 			config: a
 		};
-		return e === "router" && Array.isArray(a.routes) && (o.outputs = a.routes.map((e) => ({
+		return o && (s._apPiece = o), e === "router" && Array.isArray(a.routes) && (s.outputs = a.routes.map((e) => ({
 			name: e.toLowerCase().replace(/\s+/g, "_"),
 			label: e,
 			type: "any"
-		}))), T.addNode(o, i), k.renderNode(o, i), P("onNodeAdd", {
-			node: o,
+		}))), O.addNode(s, i), M.renderNode(s, i), L("onNodeAdd", {
+			node: s,
 			position: i
-		}), o;
+		}), s;
 	}
-	T.on("nodeMove", ({ id: e, position: t }) => {
-		P("onNodeMove", {
+	O.on("nodeMove", ({ id: e, position: t }) => {
+		L("onNodeMove", {
 			id: e,
 			position: t
 		});
-	}), T.on("connect", (e) => {
-		P("onConnect", e);
-	}), T.on("nodeDelete", ({ id: e }) => {
-		P("onDelete", {
+	}), O.on("connect", (e) => {
+		L("onConnect", e);
+	}), O.on("nodeDelete", ({ id: e }) => {
+		L("onDelete", {
 			id: e,
 			type: "node"
 		});
-	}), T.on("disconnect", (e) => {
-		P("onDelete", {
+	}), O.on("disconnect", (e) => {
+		L("onDelete", {
 			id: e.id,
 			type: "edge"
 		});
-	}), T.on("change", (e) => {
-		P("onChange", e);
-	}), k && k.on("nodeSelect", ({ id: e, node: t }) => {
-		j && j.show(t, (e, t) => {
-			let n = T.nodes.get(e);
-			n && (n.type === "router" && Array.isArray(t.routes) && (n.outputs = t.routes.map((e) => ({
-				name: e.toLowerCase().replace(/\s+/g, "_"),
-				label: e,
-				type: "any"
-			})), k.updateNodeEl(e), O.renderAllEdges()), T.updateNodeConfig(e, t));
-		});
-	}), E.nodeLayer.addEventListener("click", (e) => {
-		e.target === E.nodeLayer && j && j.clear();
-	}), T.on("load", () => {
-		E.nodeLayer.innerHTML = "";
-		for (let [e, t] of T.nodes) {
-			let n = T.positions.get(e);
-			n && k.renderNode(t, n);
+	}), O.on("change", (e) => {
+		L("onChange", e);
+	}), M && M.on("nodeSelect", ({ id: e, node: t }) => {
+		if (P) {
+			let n = O.nodes.get(e) || t;
+			P.show(n, (e, t) => {
+				let n = O.nodes.get(e);
+				if (n) {
+					if (n.type === "router" && Array.isArray(t.routes)) {
+						n.outputs = t.routes.map((e) => ({
+							name: e.toLowerCase().replace(/\s+/g, "_"),
+							label: e,
+							type: "any"
+						})), O.updateNodeConfig(e, t), M.updateNodeEl(e), j.renderAllEdges(), P.show(O.nodes.get(e), P._onChange);
+						return;
+					}
+					if (n.type.startsWith("ap_") && t.actionName !== n.config.actionName) {
+						n.config = { actionName: t.actionName }, O.updateNodeConfig(e, n.config), P.show(n, P._onChange);
+						return;
+					}
+					O.updateNodeConfig(e, t);
+				}
+			});
 		}
-		O.renderAllEdges();
+	}), k.nodeLayer.addEventListener("click", (e) => {
+		e.target === k.nodeLayer && P && P.clear();
+	}), O.on("load", () => {
+		for (let [e, t] of O.nodes) {
+			let e = S.get(t.type);
+			e && e._apPiece && (t._apPiece = e._apPiece);
+		}
+		k.nodeLayer.innerHTML = "";
+		for (let [e, t] of O.nodes) {
+			let n = O.positions.get(e);
+			n && M.renderNode(t, n);
+		}
+		j.renderAllEdges();
 	});
-	function P(e, t) {
+	function L(e, t) {
 		typeof o[e] == "function" && o[e](t);
 	}
-	let F = {
-		state: T,
-		canvas: E,
+	let R = {
+		state: O,
+		canvas: k,
+		connectionId: b,
 		addNode(e, t) {
-			return N(e, t)?.id;
+			return I(e, t)?.id;
 		},
 		addEdge(e, t, n, r) {
-			let i = D.canConnect(e, t, n, r);
+			let i = A.canConnect(e, t, n, r);
 			if (!i.ok) return console.warn("[Workflow] addEdge failed:", i.reason), null;
 			let a = `edge_${Date.now()}_${Math.random().toString(36).slice(2)}`, o = {
 				id: a,
@@ -1343,57 +1917,97 @@ function p(o = {}) {
 				toNode: n,
 				toPort: r
 			};
-			return T.addEdge(o), O._renderEdge(o), a;
+			return O.addEdge(o), j._renderEdge(o), a;
 		},
 		removeNode(e) {
-			k.deleteNode(e);
+			M.deleteNode(e);
 		},
 		deleteSelected() {
-			let e = k.getSelectedNodes();
-			for (let t of e) k.deleteNode(t);
+			let e = M.getSelectedNodes();
+			for (let t of e) M.deleteNode(t);
 		},
 		clear() {
-			let e = Array.from(T.nodes.keys());
+			let e = Array.from(O.nodes.keys());
 			for (let t of e) {
-				let e = E.nodeLayer.querySelector(`[data-node-id="${t}"]`);
+				let e = k.nodeLayer.querySelector(`[data-node-id="${t}"]`);
 				e && e.remove();
 			}
-			for (let e of [...T.edges]) {
-				let t = O._edgePaths.get(e.id);
+			for (let e of [...O.edges]) {
+				let t = j._edgePaths.get(e.id);
 				t && t.group.remove();
 			}
-			O._edgePaths.clear(), T.nodes.clear(), T.edges = [], T.positions.clear(), T._emit("change", T.serialize()), j && j.clear();
+			j._edgePaths.clear(), O.nodes.clear(), O.edges = [], O.positions.clear(), O._emit("change", O.serialize()), P && P.clear();
 		},
 		getAdjacencyList() {
-			return T.getAdjacencyList();
+			return O.getAdjacencyList();
 		},
 		getInDegree() {
-			return T.getInDegree();
+			return O.getInDegree();
 		},
 		hasCycle() {
-			return T.hasCycle();
+			return O.hasCycle();
 		},
 		exportJSON() {
-			return T.exportJSON();
+			return O.exportJSON();
 		},
 		loadJSON(e) {
-			T.loadJSON(e);
+			O.loadJSON(e);
 		},
 		fitToView() {
-			let e = Array.from(T.positions.values());
+			let e = Array.from(O.positions.values());
 			if (!e.length) return;
-			let t = e.map((e) => e.x), n = e.map((e) => e.y), r = Math.min(...t), i = Math.max(...t) + 200, a = Math.min(...n), o = Math.max(...n) + 120, s = i - r || 400, c = o - a || 300, l = E.container.clientWidth - 60, u = E.container.clientHeight - 60, d = Math.min(3, Math.max(.2, Math.min(l / s, u / c)));
-			E.transform.scale = d, E.transform.x = (l - s * d) / 2 + 30 - r * d, E.transform.y = (u - c * d) / 2 + 30 - a * d, E._applyTransform();
+			let t = e.map((e) => e.x), n = e.map((e) => e.y), r = Math.min(...t), i = Math.max(...t) + 200, a = Math.min(...n), o = Math.max(...n) + 120, s = i - r || 400, c = o - a || 300, l = k.container.clientWidth - 60, u = k.container.clientHeight - 60, d = Math.min(3, Math.max(.2, Math.min(l / s, u / c)));
+			k.transform.scale = d, k.transform.x = (l - s * d) / 2 + 30 - r * d, k.transform.y = (u - c * d) / 2 + 30 - a * d, k._applyTransform();
 		},
 		on(e, t) {
-			return T.on(e, t);
+			return O.on(e, t);
 		},
 		registerNodeType(e) {
-			v.push(e), y.set(e.type, e), A && A._renderList();
+			x.push(e), S.set(e.type, e), N && N._renderList();
+		},
+		availableVariables: p(y),
+		setAvailableVariables(e) {
+			if (this.availableVariables = p(e), P && O.nodes.size > 0) {
+				let e = P._nodeId;
+				if (e) {
+					let t = O.nodes.get(e);
+					t && P.show(t, P._onChange);
+				}
+			}
+		},
+		registerPiece(e) {
+			let t = {
+				type: `ap_${e.name}`,
+				label: e.displayName,
+				category: "Integrations",
+				description: e.description || `Integrations with ${e.displayName}`,
+				inputs: [{
+					name: "in",
+					label: "Input",
+					type: "any"
+				}],
+				outputs: [{
+					name: "out",
+					label: "Output",
+					type: "any"
+				}],
+				configSchema: { actionName: {
+					type: "select",
+					label: "Action",
+					options: Object.keys(e.actions || {}),
+					default: Object.keys(e.actions || {})[0] || ""
+				} },
+				style: {
+					background: "linear-gradient(135deg,#f97316,#ea580c)",
+					icon: e.logoUrl ? `<img src="${e.logoUrl}" style="width:16px;height:16px;object-fit:contain;border-radius:4px;" />` : null
+				},
+				_apPiece: e
+			};
+			this.registerNodeType(t);
 		}
 	};
-	return M && M.setWorkflow(F), F;
+	return F && F.setWorkflow(R), P && P.setWorkflow(R), R;
 }
-typeof window < "u" && (window.createWorkflow = p);
+typeof window < "u" && (window.createWorkflow = m);
 //#endregion
-export { p as createWorkflow };
+export { m as createWorkflow };

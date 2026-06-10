@@ -67,6 +67,7 @@ export function createWorkflow(options = {}) {
     readOnly = false,
     onEdit = null,
     availableVariables = [],
+    connectionId = 'default_connection',
   } = options;
 
   if (!container) throw new Error('[Workflow] container is required');
@@ -255,8 +256,15 @@ export function createWorkflow(options = {}) {
     if (e.target === canvas.nodeLayer && config) config.clear();
   });
 
-  /* ── Load state handler ── */
   state.on('load', () => {
+    // Re-attach _apPiece references to imported nodes from registry definitions
+    for (const [id, nodeData] of state.nodes) {
+      const def = nodeTypeMap.get(nodeData.type);
+      if (def && def._apPiece) {
+        nodeData._apPiece = def._apPiece;
+      }
+    }
+
     // Re-render all nodes
     canvas.nodeLayer.innerHTML = '';
     for (const [id, nodeData] of state.nodes) {
@@ -265,7 +273,6 @@ export function createWorkflow(options = {}) {
     }
     connection.renderAllEdges();
   });
-
   function _emitHook(name, data) {
     if (typeof options[name] === 'function') options[name](data);
   }
@@ -274,6 +281,7 @@ export function createWorkflow(options = {}) {
   const workflow = {
     state,
     canvas,
+    connectionId,
 
     addNode(type, position) {
       const node = _dropNode(type, position);

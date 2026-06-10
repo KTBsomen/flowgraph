@@ -43,6 +43,10 @@ export class Toolbar {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
             Import
           </button>
+          <button class="wf-btn wf-btn--success" data-action="run-flow" title="Run Flow" style="background:#10b981; color:#fff; border:none; display:flex; align-items:center; gap:6px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Run Flow
+          </button>
         </div>
         <div class="wf-toolbar-divider"></div>
         <div class="wf-toolbar-group wf-toolbar-group--info">
@@ -99,6 +103,7 @@ export class Toolbar {
         break;
       case 'export':   this._exportJSON(); break;
       case 'import':   this.importInput.click(); break;
+      case 'run-flow': this._runFlow(); break;
     }
   }
 
@@ -155,5 +160,58 @@ export class Toolbar {
       if (e.key === 'Delete' || e.key === 'Backspace') this.workflow.deleteSelected();
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') e.preventDefault(); // TODO: undo
     });
+  }
+
+  async _runFlow() {
+    if (!this.workflow) return;
+    
+    const runBtn = this.container.querySelector('[data-action="run-flow"]');
+    if (runBtn) {
+      runBtn.disabled = true;
+      runBtn.innerHTML = 'Running...';
+    }
+
+    try {
+      const graph = this.workflow.state.serialize();
+      
+      const response = await fetch('/api/execute-flow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          graph,
+          globalVariables: {
+            'user.email': 'test@nango.dev',
+            'user.age': 28,
+            'form.title': 'Customer Signup Form',
+            'form.submittedAt': new Date().toISOString(),
+            'payment.amount': 99,
+            'payment.status': 'success'
+          }
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('✓ Workflow executed successfully!');
+      } else {
+        const failedStep = result.logs.find(log => log.status === 'failed');
+        alert(`✕ Flow execution failed at ${failedStep?.nodeLabel || 'node'}: ${failedStep?.error || 'Unknown error'}`);
+      }
+      
+      console.log('Execution Logs:', result.logs);
+      
+    } catch (err) {
+      console.error('Flow Execution Error:', err);
+      alert('Failed to execute flow: ' + err.message);
+    } finally {
+      if (runBtn) {
+        runBtn.disabled = false;
+        runBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Run Flow
+        `;
+      }
+    }
   }
 }

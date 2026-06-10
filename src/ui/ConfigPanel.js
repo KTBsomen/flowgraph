@@ -128,6 +128,9 @@ export class ConfigPanel {
           else if (prop.type === 'NUMBER') type = 'number';
           else if (prop.type === 'CHECKBOX') type = 'boolean';
           else if (prop.type === 'STATIC_DROPDOWN') type = 'select';
+          else if (prop.type === 'DYNAMIC_DROPDOWN') type = 'dynamic-select';
+          else if (prop.type === 'DYNAMIC') type = 'textarea';
+          else if (prop.type === 'JSON') type = 'code';
           
           schema[key] = {
             type,
@@ -135,7 +138,7 @@ export class ConfigPanel {
             default: prop.defaultValue || '',
             placeholder: prop.placeholder || '',
             required: prop.required || false,
-            options: prop.options ? prop.options.options.map(o => o.value) : []
+            options: prop.options ? (prop.options.options || []).map(o => o.value || o) : []
           };
         }
       }
@@ -157,6 +160,52 @@ export class ConfigPanel {
           <input type="text" class="wf-input" value="${node.id}" readonly>
         </div>
       </div>
+
+      ${node._apPiece && node._apPiece.auth ? `
+        <div class="wf-config-section">
+          <div class="wf-config-section-title">Authentication</div>
+          <div class="wf-config-field" data-field="authConfig" style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:6px; margin-bottom:12px;">
+            <label style="font-weight:600; margin-bottom:8px; display:block; color:#1e293b;">Auth Provider: ${node._apPiece.displayName}</label>
+            
+            ${node._apPiece.auth.type === 'OAUTH2' ? `
+              <div style="margin-bottom:8px;">
+                <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">Auth Method</span>
+                <select class="wf-input wf-auth-type" style="width:100%;">
+                  <option value="oauth2" ${(config.authConfig?.type || 'oauth2') === 'oauth2' ? 'selected' : ''}>Self-Hosted OAuth (Popup)</option>
+                  <option value="direct" ${config.authConfig?.type === 'direct' ? 'selected' : ''}>Direct Access Token</option>
+                </select>
+              </div>
+
+              <div class="wf-auth-oauth2-fields" style="display:${(config.authConfig?.type || 'oauth2') === 'oauth2' ? 'block' : 'none'};">
+                <button type="button" class="wf-btn wf-btn-primary wf-oauth-connect-btn" style="width:100%; margin-top:8px; display:flex; justify-content:center; align-items:center; gap:8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg>
+                  Connect Account
+                </button>
+                <div class="wf-oauth-status" style="margin-top:6px; font-size:11px; color:#16a34a; display:${config.authConfig?.oauthConnected ? 'block' : 'none'};">
+                  ✓ Account Authorized & Connected
+                </div>
+              </div>
+
+              <div class="wf-auth-direct-fields" style="display:${config.authConfig?.type === 'direct' ? 'block' : 'none'};">
+                <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">Raw Access Token</span>
+                <input type="password" class="wf-input wf-auth-raw-key" value="${config.authConfig?.rawApiKey || ''}" placeholder="Paste access token here...">
+              </div>
+            ` : `
+              <!-- Direct API Key auth, e.g. SECRET_TEXT for OpenAI -->
+              <input type="hidden" class="wf-auth-type" value="direct">
+              
+              ${node._apPiece.auth.description ? `
+                <div style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:12px; padding:10px; border-radius:6px; margin-bottom:10px; line-height:1.4;">
+                  ${node._apPiece.auth.description.replace(/\n/g, '<br>')}
+                </div>
+              ` : ''}
+              
+              <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">${node._apPiece.auth.displayName || 'API Key'}</span>
+              <input type="password" class="wf-input wf-auth-raw-key" value="${config.authConfig?.rawApiKey || ''}" placeholder="Enter Key...">
+            `}
+          </div>
+        </div>
+      ` : ''}
 
       ${Object.keys(schema).length ? `
         <div class="wf-config-section">
@@ -251,8 +300,190 @@ export class ConfigPanel {
 
     // Bind variable popovers
     this._bindVarPickers();
-  }
 
+    // Bind Auth field interactions
+    const authTypeSelect = this.bodyEl.querySelector('.wf-auth-type');
+    if (authTypeSelect) {
+      authTypeSelect.addEventListener('change', () => {
+        const isOAuth = authTypeSelect.value === 'oauth2';
+        const oauthFields = this.bodyEl.querySelector('.wf-auth-oauth2-fields');
+        const directFields = this.bodyEl.querySelector('.wf-auth-direct-fields');
+        if (oauthFields) oauthFields.style.display = isOAuth ? 'block' : 'none';
+        if (directFields) directFields.style.display = isOAuth ? 'none' : 'block';
+        this._emitChange();
+      });
+    }
+
+    const rawKeyInput = this.bodyEl.querySelector('.wf-auth-raw-key');
+    if (rawKeyInput) {
+      rawKeyInput.addEventListener('input', () => this._emitChange());
+    }
+
+    const connectBtn = this.bodyEl.querySelector('.wf-oauth-connect-btn');
+    if (connectBtn) {
+      connectBtn.addEventListener('click', () => {
+        const connectionId = this._workflow?.connectionId || 'default_connection';
+        const pieceName = node._apPiece.name;
+
+        connectBtn.disabled = true;
+        connectBtn.innerText = 'Authorizing...';
+
+        let checkClosedInterval;
+
+        // Listen for message from the callback popup window
+        const messageHandler = (e) => {
+          if (e.data && e.data.type === 'oauth-success' && e.data.connectionId === connectionId) {
+            console.log(`[OAuth UI] Received success message for connection: ${connectionId}`);
+            const statusEl = this.bodyEl.querySelector('.wf-oauth-status');
+            if (statusEl) statusEl.style.display = 'block';
+            connectBtn.disabled = false;
+            connectBtn.innerHTML = `✓ Connected`;
+            
+            if (!this._node.config) this._node.config = {};
+            if (!this._node.config.authConfig) this._node.config.authConfig = {};
+            this._node.config.authConfig.oauthConnected = true;
+
+            this._emitChange();
+            window.removeEventListener('message', messageHandler);
+            if (checkClosedInterval) clearInterval(checkClosedInterval);
+          } else if (e.data && e.data.type === 'oauth-error') {
+            console.error(`[OAuth UI] Received error message: ${e.data.error}`);
+            alert(`Authentication failed: ${e.data.error}`);
+            connectBtn.disabled = false;
+            connectBtn.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg>
+              Connect Account
+            `;
+            window.removeEventListener('message', messageHandler);
+            if (checkClosedInterval) clearInterval(checkClosedInterval);
+          }
+        };
+        window.addEventListener('message', messageHandler);
+
+        // Open standard OAuth Popup
+        const width = 600, height = 650;
+        const left = (window.innerWidth - width) / 2 + window.screenX;
+        const top = (window.innerHeight - height) / 2 + window.screenY;
+        const popupUrl = `/api/oauth/connect?pieceName=${encodeURIComponent(pieceName)}&connectionId=${encodeURIComponent(connectionId)}`;
+        
+        const popup = window.open(popupUrl, 'OAuthPopup', `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`);
+
+        // Check if popup was closed unexpectedly
+        checkClosedInterval = setInterval(() => {
+          if (!popup || popup.closed) {
+            clearInterval(checkClosedInterval);
+            window.removeEventListener('message', messageHandler);
+            if (connectBtn.innerText === 'Authorizing...') {
+              connectBtn.disabled = false;
+              connectBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg>
+                Connect Account
+              `;
+            }
+          }
+        }, 1000);
+      });
+    }
+
+    // Bind click/focus to dynamic select dropdowns to lazy-load them
+    this.bodyEl.querySelectorAll('.wf-dynamic-select').forEach(selectEl => {
+      const fieldKey = selectEl.dataset.field || selectEl.closest('[data-field]')?.dataset.field;
+      const elementId = selectEl.id;
+      const def = schema[fieldKey];
+      const val = config[fieldKey];
+
+      const triggerLoad = () => {
+        this._loadDynamicDropdown(fieldKey, def, elementId, val);
+      };
+
+      selectEl.addEventListener('focus', triggerLoad);
+      selectEl.addEventListener('click', triggerLoad);
+
+      // When a dynamic dropdown value changes, invalidate all OTHER dynamic dropdowns
+      // so they re-fetch with the updated propsValue (cascading dependent fields)
+      selectEl.addEventListener('change', () => {
+        this._emitChange();
+        // Mark all OTHER dynamic selects as needing reload
+        this.bodyEl.querySelectorAll('.wf-dynamic-select').forEach(otherEl => {
+          if (otherEl !== selectEl) {
+            delete otherEl.dataset.loaded;
+          }
+        });
+      });
+    });
+
+    // Asynchronously check if this connection is already authorized on the server
+    if (node._apPiece && node._apPiece.auth) {
+      const connectionId = this._workflow?.connectionId || 'default_connection';
+      fetch(`/api/oauth/status?connectionId=${encodeURIComponent(connectionId)}&pieceName=${encodeURIComponent(node._apPiece.name)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.connected && data.pieceName === node._apPiece.name) {
+            console.log(`[Status Check] Existing connection found for: ${node._apPiece.name} (Global: ${data.isGlobal})`);
+            
+            if (data.isGlobal) {
+              const authBoxEl = this.bodyEl.querySelector('[data-field="authConfig"]');
+              if (authBoxEl) {
+                authBoxEl.innerHTML = `
+                  <div style="display:flex; align-items:center; gap:8px; color:#16a34a; font-weight:600; font-size:12px; padding:4px 0;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span>✓ Authenticated globally by system</span>
+                  </div>
+                `;
+              }
+              if (!node.config) node.config = {};
+              node.config.authConfig = {
+                type: 'global',
+                connectionId: 'global',
+                pieceName: node._apPiece.name,
+                oauthConnected: true
+              };
+              this._emitChange();
+              return;
+            }
+
+            if (node._apPiece.auth.type === 'OAUTH2') {
+              const statusEl = this.bodyEl.querySelector('.wf-oauth-status');
+              if (statusEl) statusEl.style.display = 'block';
+              
+              const connectBtn = this.bodyEl.querySelector('.wf-oauth-connect-btn');
+              if (connectBtn) {
+                connectBtn.innerHTML = `✓ Connected`;
+              }
+
+              if (!node.config) node.config = {};
+              if (!node.config.authConfig) {
+                node.config.authConfig = {
+                  type: 'oauth2',
+                  connectionId: connectionId,
+                  pieceName: node._apPiece.name
+                };
+              }
+              node.config.authConfig.oauthConnected = true;
+              this._emitChange();
+            }
+          } else {
+            // Connection is NOT active on backend, ensure UI matches
+            if (node._apPiece.auth.type === 'OAUTH2') {
+              const statusEl = this.bodyEl.querySelector('.wf-oauth-status');
+              if (statusEl) statusEl.style.display = 'none';
+              
+              const connectBtn = this.bodyEl.querySelector('.wf-oauth-connect-btn');
+              if (connectBtn) {
+                connectBtn.innerHTML = `
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg>
+                  Connect Account
+                `;
+              }
+              if (node.config && node.config.authConfig && node.config.authConfig.oauthConnected) {
+                node.config.authConfig.oauthConnected = false;
+                this._emitChange();
+              }
+            }
+          }
+        })
+    }
+  }
   _variablePickerHTML(targetFieldId) {
     if (!this._workflow || !this._workflow.availableVariables || !this._workflow.availableVariables.length) {
       return '';
@@ -666,6 +897,14 @@ export class ConfigPanel {
           </select>
         `);
 
+      case 'dynamic-select':
+        return wrap(`
+          <select id="${id}" class="wf-input wf-select wf-dynamic-select" data-field="${key}">
+            <option value="">-- Click to Load / Select --</option>
+            ${val ? `<option value="${val}" selected>${val}</option>` : ''}
+          </select>
+        `);
+
       case 'color':
         return wrap(`<input type="color" id="${id}" class="wf-input wf-color" data-field="${key}" value="${val}">`);
 
@@ -691,10 +930,28 @@ export class ConfigPanel {
           else if (prop.type === 'NUMBER') type = 'number';
           else if (prop.type === 'CHECKBOX') type = 'boolean';
           else if (prop.type === 'STATIC_DROPDOWN') type = 'select';
+          else if (prop.type === 'DYNAMIC_DROPDOWN') type = 'dynamic-select';
+          else if (prop.type === 'DYNAMIC') type = 'textarea';
+          else if (prop.type === 'JSON') type = 'code';
           
           resolvedSchema[key] = { type };
         }
       }
+    }
+
+    // Extract authentication config if present
+    const authTypeSelect = this.bodyEl.querySelector('.wf-auth-type');
+    if (authTypeSelect) {
+      const oauthConnected = this._node.config?.authConfig?.oauthConnected || false;
+      config.authConfig = {
+        type: authTypeSelect.value,
+        connectionId: this._workflow?.connectionId || 'default_connection',
+        clientId: this.bodyEl.querySelector('.wf-auth-client-id')?.value || '',
+        clientSecret: this.bodyEl.querySelector('.wf-auth-client-secret')?.value || '',
+        rawApiKey: this.bodyEl.querySelector('.wf-auth-raw-key')?.value || '',
+        pieceName: this._node._apPiece.name,
+        oauthConnected: oauthConnected
+      };
     }
 
     for (const [key, def] of Object.entries(resolvedSchema)) {
@@ -783,5 +1040,110 @@ export class ConfigPanel {
     
     const joiner = logicalOperator === 'OR' ? ' || ' : ' && ';
     return ruleExpressions.join(joiner);
+  }
+
+  /**
+   * Gathers the current form field values from the DOM.
+   * Handles both cases: data-field on a wrapper div and data-field directly on the input/select/textarea.
+   */
+  _gatherCurrentConfig() {
+    const currentConfig = {};
+    this.bodyEl.querySelectorAll('[data-field]').forEach(el => {
+      const fieldName = el.dataset.field;
+      if (!fieldName || fieldName === 'authConfig') return;
+
+      // Case 1: el IS the input/select/textarea itself
+      const tagName = el.tagName.toLowerCase();
+      if (tagName === 'input' || tagName === 'select' || tagName === 'textarea') {
+        currentConfig[fieldName] = el.value;
+        return;
+      }
+
+      // Case 2: el is a wrapper div, look for child input/select/textarea
+      const input = el.querySelector('input, select, textarea');
+      if (input) {
+        if (input.type === 'checkbox') {
+          currentConfig[fieldName] = input.checked;
+        } else {
+          currentConfig[fieldName] = input.value;
+        }
+      }
+    });
+    return currentConfig;
+  }
+
+  async _loadDynamicDropdown(fieldKey, def, elementId, currentValue) {
+    const selectEl = this.bodyEl.querySelector(`#${elementId}`);
+    if (!selectEl || selectEl.dataset.loaded === 'true' || selectEl.dataset.loading === 'true') return;
+    
+    // Set loading lock immediately to prevent duplicate concurrent API calls
+    selectEl.dataset.loading = 'true';
+    
+    // IMPORTANT: Gather config values BEFORE setting the loading text,
+    // otherwise the field being loaded reads as "Loading options..."
+    const currentConfig = this._gatherCurrentConfig();
+    const resolvedCurrentValue = currentConfig[fieldKey] || currentValue;
+
+    // Build a clean propsValue with ONLY piece-relevant property values.
+    // Remove: the field we're loading options FOR, actionName, and any empty/garbage values.
+    const propsValue = {};
+    for (const [k, v] of Object.entries(currentConfig)) {
+      if (k === fieldKey) continue;         // Don't include the field being loaded
+      if (k === 'actionName') continue;     // actionName is sent separately
+      if (v === '' || v === undefined || v === null) continue; // Skip empty values
+      if (typeof v === 'string' && v.startsWith('Loading')) continue; // Skip loading placeholders
+      propsValue[k] = v;
+    }
+
+    // Now set the loading indicator
+    selectEl.innerHTML = `<option>Loading options...</option>`;
+    
+    try {
+      const authTypeSelect = this.bodyEl.querySelector('.wf-auth-type');
+      const authConfig = {
+        type: authTypeSelect ? authTypeSelect.value : 'direct',
+        connectionId: this._workflow?.connectionId || 'default_connection',
+        rawApiKey: this.bodyEl.querySelector('.wf-auth-raw-key')?.value || '',
+        pieceName: this._node._apPiece.name
+      };
+
+      const actionName = currentConfig.actionName || this._node.config?.actionName;
+      console.log(`[Dynamic Dropdown] Loading "${fieldKey}" for action "${actionName}" with propsValue:`, propsValue);
+
+      const response = await fetch('/api/options', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pieceName: this._node._apPiece.name,
+          actionName,
+          propertyName: fieldKey,
+          authConfig,
+          propsValue
+        })
+      });
+      
+      const data = await response.json();
+      selectEl.dataset.loading = 'false'; // release lock
+      
+      if (data.error) throw new Error(data.error);
+
+      // Handle disabled state (e.g., "Please select a spreadsheet first")
+      if (data.disabled) {
+        selectEl.innerHTML = `<option value="">${data.placeholder || 'Select a prerequisite first'}</option>`;
+        // Don't mark as loaded so it re-fetches when the prerequisite is selected
+        return;
+      }
+
+      selectEl.innerHTML = `<option value="">-- Select an option --</option>` +
+        (data.options || []).map(o => 
+          `<option value="${o.value}" ${o.value === resolvedCurrentValue ? 'selected' : ''}>${o.label || o.value}</option>`
+        ).join('');
+        
+      selectEl.dataset.loaded = 'true';
+    } catch (err) {
+      selectEl.dataset.loading = 'false';
+      console.error('Failed to load dynamic options:', err);
+      selectEl.innerHTML = `<option value="">Failed to load: ${err.message}</option>`;
+    }
   }
 }

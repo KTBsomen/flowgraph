@@ -1,1 +1,3 @@
 node_modules
+connections.json
+.env
