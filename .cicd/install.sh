@@ -15,10 +15,20 @@ sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-http
 
 # 2. Install Caddy
 echo "Installing Caddy..."
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+# 2. Download and import the GPG key safely using --batch
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --batch --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+# 3. Add the official Caddy repository to your sources list
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt-get update -y
-sudo apt-get install -y caddy
+
+# 4. Set appropriate read permissions for the file system
+sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+sudo chmod o+r /etc/apt/sources.list.d/caddy-stable.list
+
+# 5. Update local package lists and install Caddy
+sudo apt update
+sudo apt install -y caddy
 
 # 3. Setup Caddy reverse proxy for getlostleads.com -> localhost:4000
 echo "Configuring Caddy reverse proxy..."
