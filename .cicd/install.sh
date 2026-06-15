@@ -94,6 +94,9 @@ log "Configuring Caddy"
 
 sudo tee /etc/caddy/Caddyfile >/dev/null <<EOF
 getlostleads.com {
+    handle_path /flowgraph-api/* {
+        reverse_proxy localhost:3000
+    }
     reverse_proxy localhost:4000
 }
 EOF
