@@ -25,10 +25,10 @@ fi
 # 2. Start applications using the ecosystem config
 echo "Starting backend and worker via PM2..."
 if [ "$CICD_SERVICE_NAME" = "flowgraph-backend" ]; then
-    $BUN_PATH run server/server.js &
+    $BUN_PATH server/server.js &
 fi
 if [ "$CICD_SERVICE_NAME" = "flowgraph-worker" ]; then
-    $BUN_PATH run server/engine/run-worker.js &
+    $BUN_PATH server/engine/run-worker.js &
 fi
 
 
