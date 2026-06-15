@@ -16,17 +16,21 @@ sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-http
 # 2. Install Caddy
 echo "Installing Caddy..."
 
-# 2. Download and import the GPG key safely using --batch
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --batch --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+# 1. Clean up the broken files from previous attempts
+sudo rm -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+sudo rm -f /etc/apt/sources.list.d/caddy-stable.list
 
-# 3. Add the official Caddy repository to your sources list
+# 2. Re-download and forcefully overwrite the GPG key in batch mode
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --batch --overwrite --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+# 3. Re-add the Caddy package list
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
 
-# 4. Set appropriate read permissions for the file system
+# 4. Correct permissions
 sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 sudo chmod o+r /etc/apt/sources.list.d/caddy-stable.list
 
-# 5. Update local package lists and install Caddy
+# 5. Sync and install
 sudo apt update
 sudo apt install -y caddy
 
