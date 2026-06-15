@@ -28,7 +28,7 @@ if [ "$CICD_SERVICE_NAME" = "flowgraph-backend" ]; then
    exec $BUN_PATH server/server.js 
 fi
 if [ "$CICD_SERVICE_NAME" = "flowgraph-worker" ]; then
-    exec $BUN_PATH server/engine/run-worker.js &
+    exec $BUN_PATH server/engine/run-worker.js
 fi
 
 
