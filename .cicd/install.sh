@@ -1,93 +1,184 @@
-#!/bin/bash
-# .cicd/install.sh - Script to build environment and configure services on Ubuntu
+#!/usr/bin/env bash
 
-set -e
+set -Eeuo pipefail
 
-echo "=== Starting Environment Setup ==="
+export DEBIAN_FRONTEND=noninteractive
 
-# 1. Update APT repositories
-echo "Updating package lists..."
-sudo apt-get update -y
+echo "=== Starting GetLostLeads Environment Setup ==="
 
-# Install common prerequisites
-echo "Installing prerequisites (curl, unzip, gpg, debian-keyring)..."
-sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl unzip
+########################################
+# Helpers
+########################################
 
-# 2. Install Caddy
-echo "Installing Caddy..."
+log() {
+  echo
+  echo "================================="
+  echo "$1"
+  echo "================================="
+}
 
-# 1. Clean up the broken files from previous attempts
+########################################
+# Verify sudo
+########################################
+
+if ! sudo -n true 2>/dev/null; then
+  echo "This script requires sudo access."
+  echo
+
+  sudo true
+fi
+
+########################################
+# Update system
+########################################
+
+log "Updating packages"
+
+sudo apt-get update
+
+########################################
+# Install prerequisites
+########################################
+
+log "Installing prerequisites"
+
+sudo apt-get install -y \
+  curl \
+  unzip \
+  gnupg \
+  debian-keyring \
+  debian-archive-keyring \
+  apt-transport-https
+
+########################################
+# Install Caddy
+########################################
+
+log "Installing Caddy"
+
 sudo rm -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 sudo rm -f /etc/apt/sources.list.d/caddy-stable.list
 
-# 2. Re-download and forcefully overwrite the GPG key in batch mode
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --batch --overwrite --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+TMP_KEY=$(mktemp)
 
-# 3. Re-add the Caddy package list
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+curl -fsSL \
+'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+-o "$TMP_KEY"
 
-# 4. Correct permissions
-sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-sudo chmod o+r /etc/apt/sources.list.d/caddy-stable.list
+sudo gpg \
+  --batch \
+  --yes \
+  --dearmor \
+  -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+  "$TMP_KEY"
 
-# 5. Sync and install
-sudo apt update
-sudo apt install -y caddy
+rm "$TMP_KEY"
 
-# 3. Setup Caddy reverse proxy for getlostleads.com -> localhost:4000
-echo "Configuring Caddy reverse proxy..."
-sudo tee /etc/caddy/Caddyfile << 'EOF'
+curl -fsSL \
+'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+| sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+
+sudo apt-get update
+
+sudo apt-get install -y caddy
+
+########################################
+# Configure Caddy
+########################################
+
+log "Configuring Caddy"
+
+sudo tee /etc/caddy/Caddyfile >/dev/null <<EOF
 getlostleads.com {
     reverse_proxy localhost:4000
 }
 EOF
 
-# Restart and enable Caddy service
-echo "Starting and enabling Caddy systemd service..."
-sudo systemctl daemon-reload
 sudo systemctl enable caddy
 sudo systemctl restart caddy
 
-# 4. Install and configure Redis
-echo "Installing Redis..."
+########################################
+# Install Redis
+########################################
+
+log "Installing Redis"
+
 sudo apt-get install -y redis-server
 
-echo "Configuring Redis appendonly mode..."
-# Enable AOF (Append Only File) persistence
-sudo sed -i 's/^appendonly no/appendonly yes/g' /etc/redis/redis.conf
+########################################
+# Configure Redis
+########################################
+
+log "Configuring Redis"
+
+sudo sed -i \
+'s/^appendonly no/appendonly yes/' \
+/etc/redis/redis.conf
+
 if ! grep -q "^appendonly yes" /etc/redis/redis.conf; then
-    echo "appendonly yes" | sudo tee -a /etc/redis/redis.conf
+  echo "appendonly yes" | sudo tee -a /etc/redis/redis.conf >/dev/null
 fi
 
-echo "Starting and enabling Redis systemd service..."
 sudo systemctl enable redis-server
 sudo systemctl restart redis-server
 
-# 5. Install Bun and check PATH
-echo "Checking for Bun installation..."
-if ! command -v bun &> /dev/null; then
-    echo "Bun not found. Installing Bun..."
-    curl -fsSL https://bun.sh/install | bash
-    # Export paths for current shell context
-    export BUN_INSTALL="$HOME/.bun"
-    export PATH="$BUN_INSTALL/bin:$PATH"
-    
-    # Also attempt root backup path in case of sudo execution
-    if [ -d "/root/.bun" ]; then
-        export BUN_INSTALL="/root/.bun"
-        export PATH="$BUN_INSTALL/bin:$PATH"
-    fi
-else
-    echo "Bun is already installed."
+########################################
+# Install Bun
+########################################
+
+log "Installing Bun"
+
+if ! command -v bun >/dev/null 2>&1; then
+
+  curl -fsSL https://bun.sh/install | bash
+
 fi
 
-# Double check Bun is in PATH now
-BUN_PATH=$(command -v bun || echo "$HOME/.bun/bin/bun" || echo "/root/.bun/bin/bun" || echo "/usr/local/bin/bun")
-echo "Bun path: $BUN_PATH"
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
 
-# 6. Run bun install in the project root
-echo "Running bun install..."
-"$BUN_PATH" install
+########################################
+# Verify Bun
+########################################
 
-echo "=== Environment Setup Completed Successfully ==="
+if ! command -v bun >/dev/null 2>&1; then
 
+  if [ -x "$HOME/.bun/bin/bun" ]; then
+
+      export PATH="$HOME/.bun/bin:$PATH"
+
+  else
+
+      echo "Bun installation failed"
+
+      exit 1
+
+  fi
+
+fi
+
+echo "Bun version:"
+bun --version
+
+########################################
+# Install project dependencies
+########################################
+
+log "Installing project dependencies"
+
+bun install
+
+########################################
+# Done
+########################################
+
+log "Setup completed"
+
+echo "Services status"
+
+sudo systemctl status caddy --no-pager || true
+
+sudo systemctl status redis-server --no-pager || true
+
+echo
+echo "✅ Environment ready"
