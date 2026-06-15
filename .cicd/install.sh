@@ -56,31 +56,35 @@ sudo apt-get install -y \
 
 log "Installing Caddy"
 
-sudo rm -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-sudo rm -f /etc/apt/sources.list.d/caddy-stable.list
+if ! command -v caddy >/dev/null 2>&1; then
+  sudo rm -f /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  sudo rm -f /etc/apt/sources.list.d/caddy-stable.list
 
-TMP_KEY=$(mktemp)
+  TMP_KEY=$(mktemp)
 
-curl -fsSL \
-'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
--o "$TMP_KEY"
+  curl -fsSL \
+  'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+  -o "$TMP_KEY"
 
-sudo gpg \
-  --batch \
-  --yes \
-  --dearmor \
-  -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
-  "$TMP_KEY"
+  sudo gpg \
+    --batch \
+    --yes \
+    --dearmor \
+    -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+    "$TMP_KEY"
 
-rm "$TMP_KEY"
+  rm "$TMP_KEY"
 
-curl -fsSL \
-'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
-| sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+  curl -fsSL \
+  'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+  | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
 
-sudo apt-get update
+  sudo apt-get update
 
-sudo apt-get install -y caddy
+  sudo apt-get install -y caddy
+else
+  echo "Caddy is already installed. Skipping installation."
+fi
 
 ########################################
 # Configure Caddy
@@ -103,7 +107,11 @@ sudo systemctl restart caddy
 
 log "Installing Redis"
 
-sudo apt-get install -y redis-server
+if ! command -v redis-server >/dev/null 2>&1; then
+  sudo apt-get install -y redis-server
+else
+  echo "Redis is already installed. Skipping installation."
+fi
 
 ########################################
 # Configure Redis

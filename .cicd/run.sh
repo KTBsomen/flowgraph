@@ -3,7 +3,7 @@
 
 set -e
 
-echo "=== Starting Applications with PM2 ==="
+echo "=== Starting Applications with & ==="
 
 # 1. Ensure Bun path is loaded
 BUN_PATH=$(command -v bun || echo "$HOME/.bun/bin/bun" || echo "/root/.bun/bin/bun" || echo "/usr/local/bin/bun")
@@ -14,21 +14,21 @@ if [ -d "/root/.bun" ]; then
     export PATH="$BUN_INSTALL/bin:$PATH"
 fi
 
-# 2. Ensure PM2 is installed
-if ! command -v pm2 &> /dev/null; then
-    echo "PM2 is not installed. Installing PM2 globally via Bun..."
-    "$BUN_PATH" install -g pm2
-else
-    echo "PM2 is already installed."
-fi
+# # 2. Ensure PM2 is installed
+# if ! command -v pm2 &> /dev/null; then
+#     echo "PM2 is not installed. Installing PM2 globally via Bun..."
+#     "$BUN_PATH" install -g pm2
+# else
+#     echo "PM2 is already installed."
+# fi
 
 # 2. Start applications using the ecosystem config
 echo "Starting backend and worker via PM2..."
-pm2 start ecosystem.config.js
+$BUN_PATH run server/server.js &
+$BUN_PATH run server/engine/run-worker.js &
+
 
 # 3. Configure startup and save state
-echo "Saving PM2 process list..."
-pm2 save
 
 echo "To configure PM2 to start on boot, run:"
 echo "pm2 startup"
