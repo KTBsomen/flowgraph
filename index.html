@@ -116,6 +116,7 @@
       configSchema: {
         level: { type: 'select', label: 'Log Level', options: ['info', 'warn', 'error', 'debug'], default: 'info' },
         prefix: { type: 'text', label: 'Prefix', default: '[Log]' },
+        message: { type: 'text', label: 'Message', default: '' },
         enabled: { type: 'boolean', label: 'Enabled', default: true },
       },
       style: { background: 'linear-gradient(135deg,#0ea5e9,#0284c7)' },
@@ -127,7 +128,9 @@
       nodes: [customNode],
       canvasOptions: { snapToGrid: true, gridSize: 20 },
       minimap: true,
+      host: 'http://localhost:3000',
       connectionId: 'user_account_123',
+      loadActivepiceNodes: true,
       availableVariables: [
         { name: 'user.email', label: 'User Email Address', type: 'string' },
         { name: 'user.age', label: 'User Age', type: 'number' },
@@ -151,28 +154,6 @@
         }
       },
     });
-
-    /* ── Register Activepieces pieces dynamically ── */
-    async function loadActivepiecesPieces() {
-      try {
-        const response = await fetch('/api/pieces');
-        const pieces = await response.json();
-        console.log('Successfully fetched pieces from backend:', pieces);
-
-        if (pieces && Array.isArray(pieces)) {
-          pieces.forEach(piece => {
-            wf.registerPiece(piece);
-          });
-          return;
-        }
-      } catch (err) {
-        console.warn('Backend server not running or piece fetch failed. Registering mock pieces instead.', err);
-      }
-
-      // Fallback mocks
-    }
-
-    loadActivepiecesPieces();
 
     /* ── Load a demo workflow ── */
     setTimeout(() => {

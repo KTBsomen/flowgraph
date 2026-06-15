@@ -12,6 +12,15 @@
 const fs = require('fs/promises');
 const path = require('path');
 
+function getOAuth2Auth(piece) {
+  if (!piece || !piece.auth) return null;
+  if (Array.isArray(piece.auth)) {
+    return piece.auth.find(a => a.type === 'OAUTH2') || null;
+  }
+  return piece.auth.type === 'OAUTH2' ? piece.auth : null;
+}
+
+
 class AuthResolver {
   /**
    * @param {object} options
@@ -59,9 +68,13 @@ class AuthResolver {
                       process.env[`${envPrefix}_API_KEY`] ||
                       process.env[`${envPrefix}_SECRET_TEXT`];
 
-    if (globalKey) {
+    if (globalKey && !(node.config?.authConfig?.type === 'direct' || node.config?.authConfig?.type === 'oauth2')) {
       const piece = handler.piece;
-      if (piece && piece.auth && piece.auth.type === 'OAUTH2') {
+      const isOAuth2 = piece && piece.auth && (
+        piece.auth.type === 'OAUTH2' ||
+        (Array.isArray(piece.auth) && piece.auth.some(a => a.type === 'OAUTH2'))
+      );
+      if (isOAuth2) {
         // OAuth2 global credentials are used to refresh/init connections, not returned directly
       } else {
         // Return the global token/API key directly
@@ -69,26 +82,14 @@ class AuthResolver {
       }
     }
 
-    // 2. Fall back to user-configured connection
-    const connectionId = node.connectionId || node.config?.authConfig?.connectionId;
-    if (!connectionId) {
-      throw new Error(`Node "${node.label || node.id}" requires auth but has no connectionId.`);
-    }
-
+    // 2. Fall back to user-configured connection in the store
+    const connectionId = node.connectionId || node.config?.authConfig?.connectionId || 'default_connection';
     const key = `${connectionId}:${pieceName}`;
     const connections = await this.loadConnections();
     const conn = connections[key];
 
     if (!conn) {
-      const rawKey = node.config?.authConfig?.rawApiKey;
-      if (rawKey) {
-        const piece = handler.piece;
-        if (piece && piece.auth && piece.auth.type === 'OAUTH2') {
-          return { access_token: rawKey };
-        }
-        return rawKey;
-      }
-      throw new Error(`Connection "${connectionId}" for "${pieceName}" not found. Connect the account first.`);
+      throw new Error(`No credentials saved for "${pieceName}". Please connect your account in the node's authentication section.`);
     }
 
     // Auto-refresh expired OAuth2 tokens
@@ -98,7 +99,11 @@ class AuthResolver {
 
     // Return in the format the piece expects
     const piece = handler.piece;
-    if (piece && piece.auth && piece.auth.type === 'OAUTH2') {
+    const isOAuth2 = piece && piece.auth && (
+      piece.auth.type === 'OAUTH2' ||
+      (Array.isArray(piece.auth) && piece.auth.some(a => a.type === 'OAUTH2'))
+    );
+    if (isOAuth2) {
       return { access_token: conn.access_token };
     }
     return conn.access_token || conn.api_key || '';
@@ -106,7 +111,8 @@ class AuthResolver {
 
   async _refreshToken(conn, key, handler) {
     const piece = handler.piece;
-    if (!piece || !piece.auth || !piece.auth.tokenUrl) {
+    const oauthAuth = getOAuth2Auth(piece);
+    if (!oauthAuth || !oauthAuth.tokenUrl) {
       throw new Error('Cannot refresh token: OAuth metadata not found for piece.');
     }
 
@@ -118,7 +124,7 @@ class AuthResolver {
         client_secret: conn.client_secret || ''
       });
 
-      const res = await fetch(piece.auth.tokenUrl, {
+      const res = await fetch(oauthAuth.tokenUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString()

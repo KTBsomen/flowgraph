@@ -28,7 +28,7 @@ module.exports = {
         catch { value = [raw]; }
         break;
       default:
-        value = String(raw);
+        value = JSON.stringify(raw) || String(raw);
     }
 
     return { value };

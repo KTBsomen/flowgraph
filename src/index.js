@@ -29,7 +29,7 @@ function flattenVariables(vars) {
       }
     }
   };
-  
+
   if (Array.isArray(vars)) {
     for (const item of vars) {
       if (item && typeof item === 'object' && item.name) {
@@ -68,7 +68,12 @@ export function createWorkflow(options = {}) {
     onEdit = null,
     availableVariables = [],
     connectionId = 'default_connection',
+    host = '',
+    loadActivepiecesPieces = true,
+    costServerHost = host || 'http://localhost:3000'
   } = options;
+
+  const shouldLoadActivepiece = loadActivepiecesPieces;
 
   if (!container) throw new Error('[Workflow] container is required');
 
@@ -77,9 +82,10 @@ export function createWorkflow(options = {}) {
   const nodeTypeMap = new Map(nodeTypes.map(n => [n.type, n]));
 
   /* ── Layout ── */
+  const renderToolbar = options.toolbar !== false;
   container.innerHTML = `
     <div class="wf-layout ${readOnly ? 'wf-layout--readonly' : ''}">
-      ${!readOnly ? `<div class="wf-toolbar-wrap" id="wf-toolbar-wrap"></div>` : ''}
+      ${renderToolbar ? `<div class="wf-toolbar-wrap" id="wf-toolbar-wrap"></div>` : ''}
       <div class="wf-main">
         ${!readOnly ? `<div class="wf-sidebar-wrap"  id="wf-sidebar-wrap"></div>` : ''}
         <div class="wf-canvas-wrap"   id="wf-canvas-wrap"></div>
@@ -111,12 +117,18 @@ export function createWorkflow(options = {}) {
   const connection = new ConnectionManager(canvas, state, validator, readOnly);
   const renderer = new NodeRenderer(canvas, state, connection, readOnly);
 
-  /* ── UI (Only create if not read-only) ── */
+  /* ── UI ── */
   let sidebar, config, toolbar;
   if (!readOnly) {
     sidebar = new SidebarPanel(sidebarWrap, nodeTypes, _dropNode);
     config = new ConfigPanel(configWrap);
-    toolbar = new Toolbar(toolbarWrap);
+  }
+  if (renderToolbar) {
+    const toolbarOpts = {
+      ...options.toolbar,
+      readOnly
+    };
+    toolbar = new Toolbar(toolbarWrap, toolbarOpts);
   }
 
   if (showMinimap) {
@@ -222,19 +234,26 @@ export function createWorkflow(options = {}) {
 
           // Dynamic Router Ports — update canvas ports when routes list changes
           if (n.type === 'router' && Array.isArray(newConfig.routes)) {
-            const newOutputs = newConfig.routes.map(r => ({
-              name: r.toLowerCase().replace(/\s+/g, '_'),
-              label: r,
-              type: 'any'
-            }));
-            n.outputs = newOutputs;
-            // Save config first so panel re-render sees updated routes
-            state.updateNodeConfig(nodeId, newConfig);
-            renderer.updateNodeEl(nodeId);
-            connection.renderAllEdges();
-            // Re-render panel so routeConditions cards reflect the new routes list
-            config.show(state.nodes.get(nodeId), config._onChange);
-            return; // Skip the updateNodeConfig at the bottom (already done above)
+            const oldRoutes = n.config?.routes || [];
+            const newRoutes = newConfig.routes || [];
+            const routesChanged = oldRoutes.length !== newRoutes.length ||
+                                  oldRoutes.some((r, i) => r !== newRoutes[i]);
+
+            if (routesChanged) {
+              const newOutputs = newConfig.routes.map(r => ({
+                name: r.toLowerCase().replace(/\s+/g, '_'),
+                label: r,
+                type: 'any'
+              }));
+              n.outputs = newOutputs;
+              // Save config first so panel re-render sees updated routes
+              state.updateNodeConfig(nodeId, newConfig);
+              renderer.updateNodeEl(nodeId);
+              connection.renderAllEdges();
+              // Re-render panel so routeConditions cards reflect the new routes list
+              config.show(state.nodes.get(nodeId), config._onChange);
+              return; // Skip the updateNodeConfig at the bottom (already done above)
+            }
           }
 
           // Activepieces action changed -> re-render properties with new action fields
@@ -282,6 +301,7 @@ export function createWorkflow(options = {}) {
     state,
     canvas,
     connectionId,
+    host,
 
     addNode(type, position) {
       const node = _dropNode(type, position);
@@ -397,12 +417,29 @@ export function createWorkflow(options = {}) {
         _apPiece: piece
       };
       this.registerNodeType(pieceNodeType);
-    }
+    },
+    costServerHost
   };
 
   /* ── Bind toolbar and config AFTER workflow API is created ── */
   if (toolbar) toolbar.setWorkflow(workflow);
   if (config) config.setWorkflow(workflow);
+
+  if (shouldLoadActivepiece) {
+    (async () => {
+      try {
+        const response = await fetch(`${host}/api/pieces`);
+        const pieces = await response.json();
+        if (pieces && Array.isArray(pieces)) {
+          pieces.forEach(piece => {
+            workflow.registerPiece(piece);
+          });
+        }
+      } catch (err) {
+        console.warn('[Workflow] Backend server not running or piece fetch failed:', err);
+      }
+    })();
+  }
 
   return workflow;
 }

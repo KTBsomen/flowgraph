@@ -11,6 +11,7 @@ const { createMemoryStore } = require('./services/store');
 const { createFilesService } = require('./services/files');
 const { resolveVariables, resolveConfig } = require('./resolver');
 const Redis = require('ioredis');
+const { getRedisConfig } = require('./redis-config');
 
 class FlowEngine {
   /**
@@ -19,11 +20,11 @@ class FlowEngine {
    * @param {string} [options.filesRoot] — Path to save run files on disk
    * @param {Function} [options.loadConnections] — Plug database connection loader
    * @param {Function} [options.saveConnection] — Plug database connection saver
-   * @param {object} [options.redis] — Redis configuration options
+   * @param {object} [options.redis] — Redis configuration options (or use REDIS_URL env)
    * @param {number} [options.concurrency=10] — Number of concurrent workflow runs
    */
   constructor(options = {}) {
-    this.redisConfig = options.redis || { host: '127.0.0.1', port: 6379 };
+    this.redisConfig = options.redis || getRedisConfig();
     this.redis = new Redis(this.redisConfig);
 
     this.registry = new NodeRegistry();
@@ -133,6 +134,7 @@ module.exports = {
   AuthResolver,
   FlowOrchestrator,
   FlowWorker,
+  getRedisConfig,
   resolveVariables,
   resolveConfig
 };

@@ -3,14 +3,15 @@
  */
 const { Queue } = require('bullmq');
 const Redis = require('ioredis');
+const { getRedisConfig } = require('./redis-config');
 
 class FlowOrchestrator {
   /**
    * @param {object} options
-   * @param {object} [options.redis] — Redis connection options
+   * @param {object} [options.redis] — Redis connection options (or use REDIS_URL env)
    */
   constructor(options = {}) {
-    this.redisConfig = options.redis || { host: '127.0.0.1', port: 6379 };
+    this.redisConfig = options.redis || getRedisConfig();
     this.redis = new Redis(this.redisConfig);
     
     // Create the BullMQ execution queue

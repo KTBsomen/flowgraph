@@ -1,3 +1,6 @@
+const dns = require("node:dns");
+dns.setServers(['1.1.1.1', '8.8.8.8']);
+
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs/promises');
@@ -7,22 +10,159 @@ const path = require('path');
 require('dotenv').config({ path: 'server/.env' });
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// Custom Security Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Configure CORS
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:4000').split(',');
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
 const PORT = process.env.PORT || 3000;
 
 
 
-// ─── Local Connection Store ───
-const CONNECTIONS_FILE = path.join(__dirname, 'connections.json');
-const { FlowEngine } = require('./engine');
+// ─── MongoDB Connection Store (Mongoose) ───
+const { Credential } = require('./usage-tracker/mongoDb');
+const { FlowEngine, getRedisConfig } = require('./engine');
+const { resolveConfig } = require('./engine/resolver');
+
+async function loadConnections() {
+  try {
+    const rows = await Credential.find({}).lean();
+    const all = {};
+    rows.forEach(r => {
+      all[r.key] = r.value;
+    });
+    return all;
+  } catch (err) {
+    console.error('[Connections] Failed to load connections from MongoDB:', err);
+    return {};
+  }
+}
+
+async function saveConnection(connectionId, pieceName, connData) {
+  const key = `${connectionId}:${pieceName}`;
+  try {
+    const doc = await Credential.findOne({ key }).lean();
+    let merged = doc ? doc.value : {};
+    merged = { ...merged, ...connData, updatedAt: Date.now() };
+
+    await Credential.findOneAndUpdate(
+      { key },
+      { key, value: merged, updatedAt: new Date() },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.error('[Connections] Failed to save connection to MongoDB:', err);
+  }
+}
+
 const engine = new FlowEngine({
-  connectionsFile: CONNECTIONS_FILE,
+  loadConnections,
+  saveConnection,
   filesRoot: path.join(process.cwd(), 'data', 'files'),
   concurrency: 1
 });
 engine.startWorker();
+
+// ─── Webhook Dispatch Queue & Worker ───
+const { Queue, Worker } = require('bullmq');
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
+
+const redisConfig = getRedisConfig();
+
+const webhookQueue = new Queue('webhookQueue', {
+  connection: redisConfig
+});
+
+const webhookWorker = new Worker('webhookQueue', async (job) => {
+  const { url, secret, payload } = job.data;
+  console.log(`[Webhook Worker] Processing job ${job.id} - sending to ${url}`);
+
+  await new Promise((resolve, reject) => {
+    const body = JSON.stringify(payload);
+    const parsedUrl = new URL(url);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body),
+      'User-Agent': 'FlowGraph-UsageTracker-Webhook/1.0'
+    };
+
+    if (secret) {
+      const crypto = require('crypto');
+      const signature = crypto.createHmac('sha256', secret).update(body).digest('hex');
+      headers['X-FlowGraph-Signature'] = signature;
+    }
+
+    const reqOpts = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'POST',
+      headers: headers,
+      timeout: 10000
+    };
+
+    const req = client.request(reqOpts, (res) => {
+      let responseBody = '';
+      res.on('data', (chunk) => { responseBody += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          console.log(`[Webhook Worker] Successfully sent payload to ${url} (Status: ${res.statusCode})`);
+          resolve();
+        } else {
+          reject(new Error(`Webhook endpoint returned status code ${res.statusCode}: ${responseBody}`));
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Webhook request timed out'));
+    });
+
+    req.write(body);
+    req.end();
+  });
+}, {
+  connection: redisConfig,
+  concurrency: 5
+});
+
+webhookWorker.on('failed', (job, err) => {
+  if (job) {
+    console.error(`[Webhook Worker] Job ${job.id} failed: ${err.message}`);
+  } else {
+    console.error(`[Webhook Worker] Job failed: ${err.message}`);
+  }
+});
 
 // ─── BullMQ Board Setup ───
 const { createBullBoard } = require('@bull-board/api');
@@ -33,22 +173,14 @@ const serverAdapter = new ExpressAdapter();
 serverAdapter.setBasePath('/admin/queues');
 
 createBullBoard({
-  queues: [new BullMQAdapter(engine.orchestrator.queue)],
+  queues: [
+    new BullMQAdapter(engine.orchestrator.queue),
+    new BullMQAdapter(webhookQueue)
+  ],
   serverAdapter: serverAdapter,
 });
 
 app.use('/admin/queues', serverAdapter.getRouter());
-
-
-
-async function loadConnections() {
-  return engine.authResolver.loadConnections();
-}
-
-async function saveConnection(connectionId, pieceName, connData) {
-  const key = `${connectionId}:${pieceName}`;
-  await engine.authResolver.saveConnection(key, connData);
-}
 
 function getPieceCredentials(pieceName) {
   const envPrefix = pieceName.toUpperCase(); // e.g. "GOOGLE_SHEETS"
@@ -73,20 +205,43 @@ function getPieceCredentials(pieceName) {
   return { clientId, clientSecret };
 }
 
-/**
- * Resolves credential values using the engine's AuthResolver.
- */
+function getOAuth2Auth(piece) {
+  if (!piece || !piece.auth) return null;
+  if (Array.isArray(piece.auth)) {
+    return piece.auth.find(a => a.type === 'OAUTH2') || null;
+  }
+  return piece.auth.type === 'OAUTH2' ? piece.auth : null;
+}
+
+
 async function resolveCredentials(authConfig = {}) {
+  // Always resolve via centralized connection store — rawApiKey is NOT used
   const node = {
-    config: {
-      authConfig
-    }
+    connectionId: authConfig.connectionId || 'default_connection',
+    config: { authConfig }
   };
+  const registryHandler = engine.registry.get(`ap_${authConfig.pieceName}`);
   const handler = {
     requiresAuth: true,
-    pieceName: authConfig.pieceName
+    pieceName: authConfig.pieceName,
+    piece: registryHandler ? registryHandler.piece : null
   };
-  return engine.authResolver.resolve(node, handler);
+  const auth = await engine.authResolver.resolve(node, handler);
+
+  if (auth && typeof auth !== 'object') {
+    return {
+      secret_text: auth,
+      auth: auth,
+      key: auth,
+      apiKey: auth,
+      api_key: auth,
+      token: auth,
+      access_token: auth,
+      toString() { return auth; },
+      valueOf() { return auth; }
+    };
+  }
+  return auth;
 }
 
 app.get('/api/pieces', (req, res) => {
@@ -136,13 +291,39 @@ app.get('/api/pieces', (req, res) => {
         displayName: piece.displayName,
         description: piece.description,
         logoUrl: piece.logoUrl,
-        auth: piece.auth ? {
-          type: piece.auth.type,
-          description: piece.auth.description || '',
-          displayName: piece.auth.displayName || 'Connection',
-          scope: piece.auth.scope || [],
-          authUrl: piece.auth.authUrl || null
-        } : null,
+        auth: piece.auth ? (() => {
+          let authType = null;
+          let authUrl = null;
+          let scope = [];
+          let displayName = 'Connection';
+          let description = '';
+
+          if (Array.isArray(piece.auth)) {
+            const oauth = piece.auth.find(a => a.type === 'OAUTH2');
+            const activeAuth = oauth || piece.auth[0];
+            if (activeAuth) {
+              authType = activeAuth.type;
+              authUrl = activeAuth.authUrl || null;
+              scope = activeAuth.scope || [];
+              displayName = activeAuth.displayName || displayName;
+              description = activeAuth.description || description;
+            }
+          } else {
+            authType = piece.auth.type;
+            authUrl = piece.auth.authUrl || null;
+            scope = piece.auth.scope || [];
+            displayName = piece.auth.displayName || displayName;
+            description = piece.auth.description || description;
+          }
+
+          return authType ? {
+            type: authType,
+            description,
+            displayName,
+            scope,
+            authUrl
+          } : null;
+        })() : null,
         actions
       };
     });
@@ -193,12 +374,70 @@ app.post('/api/options', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/properties — resolve dynamic properties schema
+ */
+app.post('/api/properties', async (req, res) => {
+  const { pieceName, actionName, propertyName, authConfig, propsValue = {} } = req.body;
+  console.log(`[Server] Resolving dynamic properties: ${pieceName}.${actionName}.${propertyName}`);
+  console.log(`[Server] propsValue received for properties:`, JSON.stringify(propsValue));
+
+  try {
+    const handler = engine.registry.get(`ap_${pieceName}`);
+    const piece = handler ? handler.piece : null;
+    if (!piece) return res.status(400).json({ error: `Piece "${pieceName}" not found.` });
+
+    const actionsObj = piece.actions();
+    const action = actionsObj[actionName];
+    if (!action) return res.status(400).json({ error: `Action "${actionName}" not found.` });
+
+    const prop = action.props[propertyName];
+    if (!prop) return res.status(400).json({ error: `Property "${propertyName}" not found.` });
+
+    const enrichedAuthConfig = { ...authConfig, pieceName };
+    const resolvedAuth = await resolveCredentials(enrichedAuthConfig);
+
+    if (prop.props && typeof prop.props === 'function') {
+      const result = await prop.props({ auth: resolvedAuth, propsValue, ...propsValue });
+
+      const normalizedProps = {};
+      for (const [key, val] of Object.entries(result || {})) {
+        let type = 'text';
+        if (val.type === 'LONG_TEXT') type = 'textarea';
+        else if (val.type === 'NUMBER') type = 'number';
+        else if (val.type === 'CHECKBOX') type = 'boolean';
+        else if (val.type === 'STATIC_DROPDOWN' || val.type === 'DROPDOWN') type = 'select';
+        else if (val.type === 'DYNAMIC_DROPDOWN') type = 'dynamic-select';
+        else if (val.type === 'ARRAY') type = 'list';
+        else if (val.type === 'JSON') type = 'code';
+
+        normalizedProps[key] = {
+          type,
+          label: val.displayName || key,
+          description: val.description || '',
+          required: !!val.required,
+          default: val.defaultValue || '',
+          placeholder: val.placeholder || '',
+          options: val.options ? (val.options.options || []).map(o => o.value !== undefined ? o : { value: o, label: o }) : []
+        };
+      }
+      res.json({ properties: normalizedProps });
+    } else {
+      res.json({ properties: {} });
+    }
+  } catch (err) {
+    console.error('[Server] Properties resolution failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // ─── Self-Hosted OAuth Routes ───
 
 /**
  * GET /api/oauth/connect — start OAuth2 authorization flow
  */
-app.get('/api/oauth/connect', (req, res) => {
+app.get('/api/oauth/connect', async (req, res) => {
   const { pieceName, connectionId } = req.query;
 
   if (!pieceName || !connectionId) {
@@ -211,19 +450,28 @@ app.get('/api/oauth/connect', (req, res) => {
   }
   const handler = engine.registry.get(`ap_${pieceName}`);
   const piece = handler ? handler.piece : null;
-  if (!piece || !piece.auth || piece.auth.type !== 'OAUTH2') {
+  const oauthAuth = getOAuth2Auth(piece);
+  if (!oauthAuth) {
     return res.status(400).send(`Piece "${pieceName}" does not support OAuth2.`);
   }
   const redirectBase = process.env.OAUTH_REDIRECT_BASE_URL || `${req.protocol}://${req.get('host')}`;
   const redirectUri = `${redirectBase.replace(/\/$/, '')}/api/oauth/callback`;
-  const state = Buffer.from(JSON.stringify({ pieceName, connectionId, clientId, clientSecret, redirectUri })).toString('base64');
 
-  const authUrl = new URL(piece.auth.authUrl);
+  // Secure OAuth State by storing credentials/data in Redis with a 10 min TTL
+  const crypto = require('crypto');
+  const stateToken = crypto.randomBytes(16).toString('hex');
+  const stateData = { pieceName, connectionId, clientId, clientSecret, redirectUri };
+
+  if (engine.redis) {
+    await engine.redis.set(`oauth_state:${stateToken}`, JSON.stringify(stateData), 'EX', 600);
+  }
+
+  const authUrl = new URL(oauthAuth.authUrl);
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('client_id', clientId);
   authUrl.searchParams.set('redirect_uri', redirectUri);
-  authUrl.searchParams.set('scope', piece.auth.scope.join(' '));
-  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('scope', oauthAuth.scope.join(' '));
+  authUrl.searchParams.set('state', stateToken);
   authUrl.searchParams.set('access_type', 'offline');
   authUrl.searchParams.set('prompt', 'consent');
 
@@ -242,11 +490,29 @@ app.get('/api/oauth/callback', async (req, res) => {
   }
 
   try {
-    const parsedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+    let parsedState;
+    if (engine.redis) {
+      const cached = await engine.redis.get(`oauth_state:${state}`);
+      if (cached) {
+        parsedState = JSON.parse(cached);
+        await engine.redis.del(`oauth_state:${state}`); // Consume token
+      }
+    }
+
+    if (!parsedState) {
+      // Fallback for backwards compatibility if it looks like base64
+      try {
+        parsedState = JSON.parse(Buffer.from(state, 'base64').toString('utf8'));
+      } catch (err) {
+        return res.status(400).send('Invalid or expired OAuth state.');
+      }
+    }
+
     const { pieceName, connectionId, clientId, clientSecret, redirectUri } = parsedState;
     const handler = engine.registry.get(`ap_${pieceName}`);
     const piece = handler ? handler.piece : null;
-    if (!piece || !piece.auth || !piece.auth.tokenUrl) {
+    const oauthAuth = getOAuth2Auth(piece);
+    if (!oauthAuth || !oauthAuth.tokenUrl) {
       return res.status(400).send('OAuth metadata not found for piece.');
     }
     console.log(`[OAuth] Exchanging authorization code for connection "${connectionId}"`);
@@ -258,7 +524,7 @@ app.get('/api/oauth/callback', async (req, res) => {
       client_secret: clientSecret
     });
 
-    const tokenRes = await fetch(piece.auth.tokenUrl, {
+    const tokenRes = await fetch(oauthAuth.tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString()
@@ -353,39 +619,134 @@ app.get('/api/oauth/callback', async (req, res) => {
 });
 
 /**
- * GET /api/oauth/status — check connection status
+ * GET /api/oauth/status — check connection status for a piece
+ * Returns authType: 'env' | 'oauth2' | 'api_key' | null
  */
 app.get('/api/oauth/status', async (req, res) => {
   const { connectionId, pieceName } = req.query;
   if (!pieceName) return res.status(400).json({ error: 'Missing pieceName.' });
 
+  const effectiveConnectionId = connectionId || 'default_connection';
+
   // 1. Check for global/SaaS-owned credentials in environment variables
   const envPrefix = pieceName.toUpperCase();
   const globalKey = process.env[`${envPrefix}_TOKEN`] ||
     process.env[`${envPrefix}_API_KEY`] ||
-    process.env[`${envPrefix}_SECRET_TEXT`];
+    process.env[`${envPrefix}_SECRET_TEXT`] ||
+    (pieceName === 'telegram_bot' ? process.env.TELEGRAM_BOT_TOKEN : '');
 
-  if (globalKey) {
-    return res.json({
-      connected: true,
-      isGlobal: true,
-      pieceName,
-      updatedAt: new Date().toISOString()
-    });
-  }
+  // 2. Check for system OAuth client app credentials
+  const { clientId, clientSecret } = getPieceCredentials(pieceName);
+  const hasSystemOAuth = !!(clientId && clientSecret);
 
-  // 2. Fall back to user-specific connection
-  if (!connectionId) return res.status(400).json({ error: 'Missing connectionId.' });
+  // 3. Load user-specific connection (OAuth token or API key)
   const all = await loadConnections();
-  const key = `${connectionId}:${pieceName}`;
-  const conn = all[key];
+  const key = `${effectiveConnectionId}:${pieceName}`;
+  const conn = all[key] || null;
+
+  let authType = null;
+  if (globalKey) authType = 'env';
+  else if (conn && conn.access_token) authType = 'oauth2';
+  else if (conn && conn.api_key) authType = 'api_key';
 
   res.json({
-    connected: !!conn,
-    isGlobal: false,
-    pieceName: conn ? conn.pieceName : null,
+    connected: !!(globalKey || conn),
+    isGlobal: !!globalKey,
+    hasSystemOAuth: hasSystemOAuth,
+    authType,
+    pieceName,
+    connectionId: effectiveConnectionId,
     updatedAt: conn ? conn.updatedAt : null
   });
+});
+
+/**
+ * POST /api/connections/api-key — Save an API key to the centralized connection store
+ * Body: { connectionId, pieceName, apiKey }
+ */
+app.post('/api/connections/api-key', async (req, res) => {
+  const { connectionId = 'default_connection', pieceName, apiKey } = req.body;
+  if (!pieceName) return res.status(400).json({ error: 'Missing pieceName.' });
+  if (!apiKey || !apiKey.trim()) return res.status(400).json({ error: 'API key cannot be empty.' });
+
+  try {
+    await saveConnection(connectionId, pieceName, {
+      pieceName,
+      api_key: apiKey.trim()
+    });
+    console.log(`[Connections] Saved API key for ${pieceName} (connectionId: ${connectionId})`);
+    res.json({ success: true, connectionId, pieceName });
+  } catch (err) {
+    console.error('[Connections] Failed to save API key:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/connections/:connectionId/:pieceName — Remove a saved connection
+ */
+app.delete('/api/connections/:connectionId/:pieceName', async (req, res) => {
+  const { connectionId, pieceName } = req.params;
+  try {
+    const key = `${connectionId}:${pieceName}`;
+    const result = await Credential.deleteOne({ key });
+    if (result.deletedCount > 0) {
+      console.log(`[Connections] Deleted connection ${key}`);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Connections] Failed to delete connection:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PIECES_EXTENSIONS = require('./pieces-extensions');
+
+/**
+ * POST /api/pieces/custom-action — Route all custom background pieces integrations tasks
+ */
+app.post('/api/pieces/custom-action', async (req, res) => {
+  const { pieceName, actionName, payload = {} } = req.body;
+  const handler = PIECES_EXTENSIONS[pieceName]?.[actionName];
+  if (!handler) {
+    return res.status(404).json({ error: `Custom action "${actionName}" for piece "${pieceName}" not found.` });
+  }
+
+  try {
+    const context = {
+      redis: engine.redis
+    };
+    const result = await handler(payload, context);
+    res.json(result);
+  } catch (err) {
+    console.error(`[Custom Action] Error running ${pieceName}.${actionName}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/telegram/webhook — Receives incoming updates from Telegram and caches user codes
+ */
+app.post('/api/telegram/webhook', async (req, res) => {
+  const update = req.body;
+  console.log('[Telegram Webhook] Received webhook update:', JSON.stringify(update));
+
+  if (update && update.message) {
+    const text = update.message.text || '';
+    const chatId = update.message.chat.id;
+
+    if (text.startsWith('/start ')) {
+      const code = text.substring(7).trim(); // extract text after "/start "
+      if (code) {
+        console.log(`[Telegram Webhook] Code detected: "${code}" -> Chat ID: ${chatId}`);
+        if (engine.redis) {
+          await engine.redis.set(`tg_code:${code}`, chatId, 'EX', 600); // 10 minutes expiry
+          console.log(`[Telegram Webhook] Saved code to Redis cache`);
+        }
+      }
+    }
+  }
+  res.sendStatus(200);
 });
 
 app.post('/api/execute-flow', async (req, res) => {
@@ -393,16 +754,131 @@ app.post('/api/execute-flow', async (req, res) => {
   console.log('[Server] Received flow execution request via FlowEngine (BullMQ + Redis)');
 
   try {
-    const { runId } = await engine.run(graph, globalVariables);
-    const result = await engine.waitForRunCompletion(runId);
+    const projectId = req.body.projectId || globalVariables.projectId || 'default_project';
+    const flowId = req.body.flowId || globalVariables.flowId || globalVariables.formId || 'default_flow';
+    const runId = req.body.runId || globalVariables.runId;
+
+    const { runId: newRunId } = await engine.run(graph, globalVariables, { projectId, flowId, runId });
+    const result = await engine.waitForRunCompletion(newRunId);
     res.json(result);
   } catch (err) {
     console.error('[Server] Execution failed:', err);
     res.status(500).json({ error: err.message });
   }
 });
+
+app.post('/api/execute-flow-async', async (req, res) => {
+  const { graph, globalVariables = {} } = req.body;
+  console.log('[Server] Received async flow execution request via FlowEngine');
+
+  try {
+    const projectId = req.body.projectId || globalVariables.projectId || 'default_project';
+    const flowId = req.body.flowId || globalVariables.flowId || globalVariables.formId || 'default_flow';
+    const runId = req.body.runId || globalVariables.runId;
+
+    const { runId: newRunId } = await engine.run(graph, globalVariables, { projectId, flowId, runId });
+    res.json({ success: true, runId: newRunId });
+  } catch (err) {
+    console.error('[Server] Async execution trigger failed:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mount Usage Cost Tracker routes directly on the main Express server
+app.use('/api/usage', require('./usage-tracker/routes'));
+
+app.post('/api/test-node', async (req, res) => {
+  const { node, connectionId, testOutputs } = req.body;
+  console.log(`[Server] Received test request for node: ${node?.id} (${node?.type})`);
+
+  try {
+    if (!node || !node.type) {
+      return res.status(400).json({ error: 'Invalid node definition. Missing node type.' });
+    }
+
+    const handler = engine.registry.get(node.type);
+    if (!handler) {
+      return res.status(400).json({ error: `Handler not found for node type: ${node.type}` });
+    }
+
+    // Resolve credentials if auth resolver is provided
+    let auth = null;
+    if (engine.authResolver) {
+      // Reconstruct temporary node payload for authResolver
+      const tempNode = {
+        id: node.id || 'test_node',
+        label: node.label || node.id || 'Test Node',
+        type: node.type,
+        connectionId: node.connectionId || connectionId,
+        config: {
+          ...node.config,
+          authConfig: (node.config?.authConfig && typeof node.config.authConfig === 'object') ? {
+            ...node.config.authConfig,
+            connectionId: node.config.authConfig.connectionId || connectionId || node.connectionId
+          } : {
+            type: 'system',
+            connectionId: connectionId || node.connectionId || 'default_connection',
+            pieceName: node._apPiece?.name || node.type.replace(/^ap_/, '')
+          }
+        }
+      };
+      auth = await engine.authResolver.resolve(tempNode, handler);
+    }
+
+    // Resolve templates in config using current testOutputs
+    const stepsOutputs = {};
+    if (testOutputs) {
+      for (const [key, val] of Object.entries(testOutputs)) {
+        stepsOutputs[key] = { output: val };
+      }
+    }
+    const resolvedConfig = resolveConfig(node.config || {}, stepsOutputs, {});
+
+    const ctx = {
+      config: resolvedConfig,
+      inputs: {},
+      auth,
+      store: {
+        get: async () => null,
+        put: async () => null,
+        delete: async () => null
+      },
+      files: {
+        write: async () => 'stubbed_file_url'
+      }
+    };
+
+    const output = await handler.execute(ctx);
+    res.json({ success: true, output });
+  } catch (err) {
+    console.error(`[Server] Node test execution failed for ${node?.id}:`, err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`\n🚀 Workflow Engine Server on http://localhost:${PORT}`);
+
+  // Auto register Telegram webhook on startup if URL and token are configured
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
+  if (botToken && webhookUrl) {
+    const registrationUrl = `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+    console.log(`[Telegram Webhook] Registering webhook on startup at: ${webhookUrl}`);
+    fetch(registrationUrl)
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          console.log('[Telegram Webhook] Successfully registered Telegram webhook!');
+        } else {
+          console.error('[Telegram Webhook] Failed to register webhook:', data.description);
+        }
+      })
+      .catch(err => {
+        console.error('[Telegram Webhook] Network error during registration:', err.message);
+      });
+  }
 
   const registeredPieces = [];
   for (const [key, handler] of engine.registry.handlers.entries()) {

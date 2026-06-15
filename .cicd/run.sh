@@ -1,0 +1,35 @@
+#!/bin/bash
+# .cicd/run.sh - Script to start server and worker on Ubuntu using PM2
+
+set -e
+
+echo "=== Starting Applications with PM2 ==="
+
+# 1. Ensure Bun path is loaded
+BUN_PATH=$(command -v bun || echo "$HOME/.bun/bin/bun" || echo "/root/.bun/bin/bun" || echo "/usr/local/bin/bun")
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+if [ -d "/root/.bun" ]; then
+    export BUN_INSTALL="/root/.bun"
+    export PATH="$BUN_INSTALL/bin:$PATH"
+fi
+
+# 2. Ensure PM2 is installed
+if ! command -v pm2 &> /dev/null; then
+    echo "PM2 is not installed. Installing PM2 globally via Bun..."
+    "$BUN_PATH" install -g pm2
+else
+    echo "PM2 is already installed."
+fi
+
+# 2. Start applications using the ecosystem config
+echo "Starting backend and worker via PM2..."
+pm2 start ecosystem.config.js
+
+# 3. Configure startup and save state
+echo "Saving PM2 process list..."
+pm2 save
+
+echo "To configure PM2 to start on boot, run:"
+echo "pm2 startup"
+echo "=== PM2 Deployment Execution Finished ==="

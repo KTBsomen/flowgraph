@@ -18,6 +18,42 @@
 function resolveVariables(value, stepsOutputs, globalVars = {}) {
   if (typeof value !== 'string') return value;
 
+  // Is it a direct match of exactly one template block?
+  // e.g. "{{steps.nodeId.output.field}}"
+  const directMatch = value.trim().match(/^\{\{([^}]+)\}\}$/);
+  if (directMatch) {
+    const trimmed = directMatch[1].trim();
+
+    // Check global variables first
+    if (globalVars[trimmed] !== undefined) {
+      return globalVars[trimmed];
+    }
+
+    // Check step references
+    if (trimmed.startsWith('steps.')) {
+      const parts = trimmed.split('.');
+      const nodeId = parts[1];
+      const stepData = stepsOutputs[nodeId];
+      if (!stepData) return undefined;
+
+      let current = stepData;
+      for (const part of parts.slice(2)) {
+        if (current && typeof current === 'object') {
+          if (part in current) {
+            current = current[part];
+          } else if (Array.isArray(current) && !isNaN(part)) {
+            current = current[Number(part)];
+          } else {
+            return undefined;
+          }
+        } else {
+          return undefined;
+        }
+      }
+      return current;
+    }
+  }
+
   return value.replace(/\{\{([^}]+)\}\}/g, (match, pathStr) => {
     const trimmed = pathStr.trim();
 

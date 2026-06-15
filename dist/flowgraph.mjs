@@ -942,9 +942,103 @@ var e = class {
 			}, !0);
 		});
 	}
-}, c = class {
+}, c = {
+	telegram_bot: {
+		auth: {
+			allowCustom: !0,
+			customLabel: "Use Custom Bot Token",
+			globalLabel: "Connected via system Telegram Bot"
+		},
+		fields: { telegram_connect_guide: {
+			type: "custom_html",
+			html: "\n          <div class=\"wf-custom-guide-card\" style=\"background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 12px; color: #e2e8f0; line-height: 1.5;\">\n            <strong style=\"color: #818cf8; display: block; margin-bottom: 4px;\">🔌 How to Connect:</strong>\n            1. Click the button below to start a chat with our bot:\n            <div style=\"margin: 8px 0 10px 0;\">\n              <button type=\"button\" class=\"wf-btn wf-telegram-bot-link-btn\" style=\"padding: 6px 12px; font-size: 11px; background: #0088cc; border: none; display: inline-flex; align-items: center; gap: 6px; color: white; border-radius: 4px; cursor: pointer; font-weight: 500;\">\n                💬 Open Telegram Bot\n              </button>\n            </div>\n            2. Click <strong>Start</strong> in Telegram, then click <strong>Get Chat ID</strong> here.\n            <button type=\"button\" class=\"wf-btn wf-telegram-detect-btn\" style=\"width: 100%; margin-top: 8px; padding: 6px; font-size: 11px; background: #1e293b; border: 1px solid #334155; color: #cbd5e1; border-radius: 4px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; font-weight: 500;\">\n              🔄 Get Chat ID\n            </button>\n          </div>\n        ",
+			onRender: (e, t) => {
+				let n = e.querySelector(".wf-telegram-bot-link-btn"), r = e.querySelector(".wf-telegram-detect-btn");
+				t.node._telegramStartCode || (t.node._telegramStartCode = Math.random().toString(36).substring(2, 8));
+				let i = t.node._telegramStartCode;
+				t.apiCall("/api/pieces/custom-action", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						pieceName: "telegram_bot",
+						actionName: "getBotInfo"
+					})
+				}).then((e) => e.json()).then((e) => {
+					e.username && n && n.addEventListener("click", () => {
+						window.open(`https://t.me/${e.username}?start=${i}`, "_blank");
+					});
+				}).catch((e) => console.error("[Telegram Override] getBotInfo failed:", e)), r && r.addEventListener("click", async () => {
+					r.disabled = !0, r.innerText = "Detecting...";
+					try {
+						let e = await (await t.apiCall("/api/pieces/custom-action", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								pieceName: "telegram_bot",
+								actionName: "detectChatId",
+								payload: { code: i }
+							})
+						})).json();
+						e.chatId ? (t.setFieldValue("chat_id", e.chatId), r.innerHTML = "✓ Detected!", t.toast("Telegram Chat ID detected successfully!", "success"), setTimeout(() => {
+							r.innerHTML = "🔄 Get Chat ID", r.disabled = !1;
+						}, 2e3)) : (t.toast("Could not find recent message. Make sure you clicked \"Start\" in Telegram.", "error"), r.innerText = "🔄 Get Chat ID", r.disabled = !1);
+					} catch (e) {
+						t.toast("Error: " + e.message, "error"), r.innerText = "🔄 Get Chat ID", r.disabled = !1;
+					}
+				});
+			}
+		} },
+		order: [
+			"telegram_connect_guide",
+			"actionName",
+			"*actionFields*"
+		],
+		actions: { send_text_message: {
+			order: ["chat_id", "message"],
+			fields: {
+				chat_id: {
+					label: "Chat ID",
+					placeholder: "Enter Chat ID or use auto-detect...",
+					required: !0,
+					description: "Unique identifier for user, group, or channel.",
+					help: { text: "To find your Telegram Chat ID, start a conversation with our bot or @userinfobot. For groups/channels, add the bot as an admin and retrieve the group's chat ID (usually begins with a minus sign like -100123456789)." },
+					validate: (e) => !/^-?\d+$/.test(e) && !e.startsWith("@") ? "Chat ID must be a number or start with @" : null
+				},
+				message: {
+					label: "Message Text",
+					placeholder: "Type your message here...",
+					required: !0,
+					description: "The body of the message to send."
+				}
+			}
+		} }
+	},
+	slack: {
+		auth: {
+			allowCustom: !0,
+			customLabel: "Use Custom Bot Token (starts with xoxb-)",
+			globalLabel: "Authorize with system Slack App"
+		},
+		order: ["actionName", "*actionFields*"],
+		actions: { send_channel_message: {
+			order: ["channel", "text"],
+			fields: {
+				channel: {
+					label: "Slack Channel",
+					placeholder: "Select a channel...",
+					description: "Choose the target channel in your workspace."
+				},
+				text: {
+					label: "Message Text",
+					placeholder: "Type message or format using block kit...",
+					description: "Message content. Markdown formatting is supported."
+				}
+			}
+		} }
+	}
+}, l = class {
 	constructor(e) {
-		this.container = e, this._nodeId = null, this._onChange = null, this._workflow = null, this._build();
+		this.container = e, this._nodeId = null, this._onChange = null, this._workflow = null, this._testOutputs = {}, this._varPickerBound = !1, this._build();
 	}
 	setWorkflow(e) {
 		this._workflow = e;
@@ -971,33 +1065,23 @@ var e = class {
 		this.helpOverlay.classList.remove("wf-help-overlay--active");
 	}
 	show(e, t) {
-		this._nodeId = e.id, this._node = e, this._onChange = t, this._render(e), this.container.querySelector(".wf-config").classList.add("wf-config--active");
+		if (this._nodeId = e.id, this._node = e, this._onChange = t, e._apPiece) {
+			let t = e._apPiece.name || e.type.replace(/^ap_/, ""), n = this._workflow?.connectionId || "default_connection", r = this._workflow?.host || "";
+			fetch(`${r}/api/oauth/status?pieceName=${t}&connectionId=${n}`).then((e) => e.json()).then((t) => {
+				this._pieceAuthStatus = t, this._render(e), this.container.querySelector(".wf-config").classList.add("wf-config--active");
+			}).catch((t) => {
+				console.error("[ConfigPanel] Failed to fetch piece auth status:", t), this._pieceAuthStatus = null, this._render(e), this.container.querySelector(".wf-config").classList.add("wf-config--active");
+			});
+		} else this._pieceAuthStatus = null, this._render(e), this.container.querySelector(".wf-config").classList.add("wf-config--active");
 	}
 	clear() {
 		this._nodeId = null, this._node = null, this._onChange = null, this.bodyEl.innerHTML = "\n      <div class=\"wf-config-empty\">\n        <svg viewBox=\"0 0 48 48\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\">\n          <rect x=\"8\" y=\"12\" width=\"32\" height=\"24\" rx=\"4\"/>\n          <path d=\"M16 20h16M16 28h10\"/>\n        </svg>\n        <p>Select a node to configure</p>\n      </div>\n    ", this.container.querySelector(".wf-config").classList.remove("wf-config--active"), this._hideHelp();
 	}
 	_render(e) {
-		let t = e.configSchema || {}, n = e.config || {}, r = e.style || {}, i = r.background || "#6366f1";
-		if (e._apPiece && n.actionName) {
-			let r = e._apPiece.actions[n.actionName];
-			if (r && r.properties) {
-				t = { ...t };
-				for (let [e, n] of Object.entries(r.properties)) {
-					let r = "text";
-					n.type === "LONG_TEXT" ? r = "textarea" : n.type === "NUMBER" ? r = "number" : n.type === "CHECKBOX" ? r = "boolean" : n.type === "STATIC_DROPDOWN" ? r = "select" : n.type === "DYNAMIC_DROPDOWN" ? r = "dynamic-select" : n.type === "DYNAMIC" ? r = "textarea" : n.type === "JSON" && (r = "code"), t[e] = {
-						type: r,
-						label: n.displayName || e,
-						default: n.defaultValue || "",
-						placeholder: n.placeholder || "",
-						required: n.required || !1,
-						options: n.options ? (n.options.options || []).map((e) => e.value || e) : []
-					};
-				}
-			}
-		}
+		let t = e.config || {}, n = e.style || {}, r = n.background || "#6366f1", i = e._apPiece ? e._apPiece.name || e.type.replace(/^ap_/, "") : null, a = i ? c[i] : null, o = this._getResolvedSchema(e);
 		this.bodyEl.innerHTML = `
-      <div class="wf-config-node-header" style="background:${i}">
-        <div class="wf-config-node-icon">${r.icon || ""}</div>
+      <div class="wf-config-node-header" style="background:${r}">
+        <div class="wf-config-node-icon">${n.icon || ""}</div>
         <div>
           <div class="wf-config-node-label">${e.label}</div>
           <div class="wf-config-node-type">${e.type}</div>
@@ -1012,56 +1096,72 @@ var e = class {
         </div>
       </div>
 
-      ${e._apPiece && e._apPiece.auth ? `
-        <div class="wf-config-section">
-          <div class="wf-config-section-title">Authentication</div>
-          <div class="wf-config-field" data-field="authConfig" style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:6px; margin-bottom:12px;">
-            <label style="font-weight:600; margin-bottom:8px; display:block; color:#1e293b;">Auth Provider: ${e._apPiece.displayName}</label>
-            
-            ${e._apPiece.auth.type === "OAUTH2" ? `
-              <div style="margin-bottom:8px;">
-                <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">Auth Method</span>
-                <select class="wf-input wf-auth-type" style="width:100%;">
-                  <option value="oauth2" ${(n.authConfig?.type || "oauth2") === "oauth2" ? "selected" : ""}>Self-Hosted OAuth (Popup)</option>
-                  <option value="direct" ${n.authConfig?.type === "direct" ? "selected" : ""}>Direct Access Token</option>
-                </select>
+      ${e._apPiece && e._apPiece.auth ? (() => {
+			let t = this._pieceAuthStatus || {}, n = t.connected || !1, r = t.isGlobal || !1, i = t.authType || null, a = t.updatedAt ? new Date(t.updatedAt).toLocaleString() : null, o = e._apPiece.auth.type === "OAUTH2" || Array.isArray(e._apPiece.auth) && e._apPiece.auth.some((e) => e.type === "OAUTH2"), s = t.hasSystemOAuth || !1, c = e._apPiece.displayName || e._apPiece.name, l = e._apPiece.auth.displayName || "API Key", u = e._apPiece.auth.description || "";
+			return this._workflow?.connectionId, t.isGlobal, `
+          <div class="wf-config-section">
+            <div class="wf-config-section-title">Authentication</div>
+            <div class="wf-config-field" data-field="authConfig" style="background:#1e293b; border:1px solid #334155; padding:12px; border-radius:6px; margin-bottom:12px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <label style="font-weight:600; color:#cbd5e1; font-size:13px;">${c}</label>
+                ${n ? "\n                  <span style=\"display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#34d399;\">\n                    <svg width=\"10\" height=\"10\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#10b981\"/></svg>\n                    Connected\n                  </span>\n                " : "\n                  <span style=\"display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;\">\n                    <svg width=\"10\" height=\"10\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#ef4444\"/></svg>\n                    Not Connected\n                  </span>\n                "}
               </div>
 
-              <div class="wf-auth-oauth2-fields" style="display:${(n.authConfig?.type || "oauth2") === "oauth2" ? "block" : "none"};">
-                <button type="button" class="wf-btn wf-btn-primary wf-oauth-connect-btn" style="width:100%; margin-top:8px; display:flex; justify-content:center; align-items:center; gap:8px;">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg>
-                  Connect Account
-                </button>
-                <div class="wf-oauth-status" style="margin-top:6px; font-size:11px; color:#16a34a; display:${n.authConfig?.oauthConnected ? "block" : "none"};">
-                  ✓ Account Authorized & Connected
+              ${n ? `
+                <!-- Connected State -->
+                <div class="wf-auth-connected-state">
+                  <div style="font-size:11px;color:#64748b;margin-bottom:10px;">
+                    ${r ? "✓ Using server environment credentials" : a ? `Last updated: ${a}` : "Account connected"}
+                    ${i === "api_key" ? " (API Key)" : i === "oauth2" ? " (OAuth2)" : ""}
+                  </div>
+                  ${r ? "" : "\n                    <button type=\"button\" class=\"wf-auth-disconnect-btn\" style=\"width:100%;background:transparent;border:1px solid #ef4444;color:#f87171;padding:6px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;\">\n                      <svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18.36 6.64a9 9 0 1 1-12.73 0\"/><line x1=\"12\" y1=\"2\" x2=\"12\" y2=\"12\"/></svg>\n                      Disconnect\n                    </button>\n                  "}
                 </div>
-              </div>
+              ` : `
+                <!-- Not Connected State -->
+                <div class="wf-auth-connect-state">
+                  ${u ? `
+                    <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:11px;padding:8px 10px;border-radius:4px;margin-bottom:10px;line-height:1.5;">
+                      ${u.replace(/\n/g, "<br>")}
+                    </div>
+                  ` : ""}
 
-              <div class="wf-auth-direct-fields" style="display:${n.authConfig?.type === "direct" ? "block" : "none"};">
-                <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">Raw Access Token</span>
-                <input type="password" class="wf-input wf-auth-raw-key" value="${n.authConfig?.rawApiKey || ""}" placeholder="Paste access token here...">
-              </div>
-            ` : `
-              <!-- Direct API Key auth, e.g. SECRET_TEXT for OpenAI -->
-              <input type="hidden" class="wf-auth-type" value="direct">
-              
-              ${e._apPiece.auth.description ? `
-                <div style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:12px; padding:10px; border-radius:6px; margin-bottom:10px; line-height:1.4;">
-                  ${e._apPiece.auth.description.replace(/\n/g, "<br>")}
+                  ${o && s ? `
+                    <!-- OAuth2 Connect Button -->
+                    <button type="button" class="wf-oauth-connect-btn" style="width:100%;display:flex;justify-content:center;align-items:center;gap:8px;background:#4f46e5;color:white;border:none;padding:8px;border-radius:4px;cursor:pointer;font-weight:500;font-size:13px;">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg>
+                      Connect with ${c}
+                    </button>
+                  ` : `
+                    <!-- API Key Entry Form -->
+                    <div class="wf-api-key-form">
+                      <label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:5px;">${l}</label>
+                      <div style="display:flex;gap:6px;">
+                        <input type="password" class="wf-input wf-api-key-input" placeholder="Enter your API key..." autocomplete="new-password" style="flex:1;font-size:12px;">
+                        <button type="button" class="wf-api-key-save-btn" style="padding:0 12px;background:#4f46e5;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap;flex-shrink:0;">Save</button>
+                      </div>
+                      <div class="wf-api-key-error" style="display:none;color:#f87171;font-size:11px;margin-top:5px;"></div>
+                    </div>
+                  `}
                 </div>
-              ` : ""}
-              
-              <span style="font-size:12px; color:#64748b; display:block; margin-bottom:4px;">${e._apPiece.auth.displayName || "API Key"}</span>
-              <input type="password" class="wf-input wf-auth-raw-key" value="${n.authConfig?.rawApiKey || ""}" placeholder="Enter Key...">
-            `}
+              `}
+            </div>
           </div>
-        </div>
-      ` : ""}
+        `;
+		})() : ""}
 
-      ${Object.keys(t).length ? `
+      ${Object.keys(o).length ? `
         <div class="wf-config-section">
           <div class="wf-config-section-title">Configuration</div>
-          ${Object.entries(t).map(([e, t]) => this._fieldHTML(e, t, n[e], n)).join("")}
+          ${Object.entries(o).map(([e, n]) => this._fieldHTML(e, n, t[e], t)).join("")}
+          
+          ${a ? `
+            <div class="wf-config-advanced-row" style="margin-top:16px; padding-top:12px; border-top:1px solid #334155; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="wf-config-advanced-toggle" ${t._showAdvanced ? "checked" : ""} style="cursor:pointer; width:16px; height:16px;">
+              <label for="wf-config-advanced-toggle" style="font-size:12px; font-weight:500; color:#94a3b8; cursor:pointer; user-select:none;">
+                Show Advanced Settings
+              </label>
+            </div>
+          ` : ""}
         </div>
       ` : ""}
 
@@ -1084,7 +1184,95 @@ var e = class {
           `).join("")}
         </div>
       ` : ""}
-    `, this.bodyEl.querySelectorAll("[data-field]").forEach((e) => {
+
+      <div class="wf-config-section wf-test-step-section">
+        <div class="wf-config-section-title">Test Step</div>
+        <div class="wf-config-field">
+          <p style="font-size:11px;color:#94a3b8;margin-bottom:8px;line-height:1.4;">
+            Run this step in isolation on the server to verify settings and fetch sample outputs.
+          </p>
+          <button type="button" class="wf-btn" id="wf-btn-test-step" style="width:100%;background:#10b981;color:white;border:none;padding:8px;border-radius:6px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Test Step
+          </button>
+          <div class="wf-test-output-container" id="wf-test-output-box" style="margin-top:10px;display:none;background:rgba(0,0,0,0.25);border:1px solid var(--wf-border);border-radius:6px;padding:8px;font-family:monospace;font-size:11px;max-height:150px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;"></div>
+        </div>
+      </div>
+    `;
+		let s = this.bodyEl.querySelector(".wf-auth-disconnect-btn");
+		s && s.addEventListener("click", async () => {
+			s.disabled = !0, s.textContent = "Disconnecting...";
+			let t = e._apPiece.name, n = this._workflow?.connectionId || "default_connection", r = this._workflow?.host || "";
+			try {
+				await fetch(`${r}/api/connections/${encodeURIComponent(n)}/${encodeURIComponent(t)}`, { method: "DELETE" }), this._pieceAuthStatus = null, this.show(e, this._onChange);
+			} catch (e) {
+				s.disabled = !1, s.textContent = "Disconnect", alert("Failed to disconnect: " + e.message);
+			}
+		});
+		let l = this.bodyEl.querySelector(".wf-api-key-save-btn");
+		if (l) {
+			let t = this.bodyEl.querySelector(".wf-api-key-input"), n = this.bodyEl.querySelector(".wf-api-key-error"), r = async () => {
+				let r = t?.value?.trim();
+				if (!r) {
+					n && (n.textContent = "API key cannot be empty.", n.style.display = "block");
+					return;
+				}
+				n && (n.style.display = "none"), l.disabled = !0, l.textContent = "Saving...";
+				let i = e._apPiece.name, a = this._workflow?.connectionId || "default_connection", o = this._workflow?.host || "";
+				try {
+					let t = await fetch(`${o}/api/connections/api-key`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							connectionId: a,
+							pieceName: i,
+							apiKey: r
+						})
+					}), n = await t.json();
+					if (!t.ok) throw Error(n.error || "Save failed");
+					this._node.config || (this._node.config = {}), this._node.config.authConfig = {
+						type: "api_key",
+						connectionId: a
+					}, this._emitChange(), this._pieceAuthStatus = null, this.show(e, this._onChange);
+				} catch (e) {
+					l.disabled = !1, l.textContent = "Save", n && (n.textContent = "Error: " + e.message, n.style.display = "block");
+				}
+			};
+			l.addEventListener("click", r), t?.addEventListener("keydown", (e) => {
+				e.key === "Enter" && r();
+			});
+		}
+		let u = this.bodyEl.querySelector("#wf-config-advanced-toggle");
+		u && u.addEventListener("change", () => {
+			this._emitChange();
+		}), a && this.bodyEl.querySelectorAll("[data-custom-html-key]").forEach((n) => {
+			let r = n.dataset.customHtmlKey, i = o[r];
+			if (i && typeof i.onRender == "function") {
+				let a = {
+					node: e,
+					setFieldValue: (t, n) => {
+						let r = this.bodyEl.querySelector(`[data-field="${t}"] input, [data-field="${t}"] select, [data-field="${t}"] textarea`) || this.bodyEl.querySelector(`[data-field="${t}"]`);
+						r ? (r.value = n, r.dispatchEvent(new Event("change", { bubbles: !0 }))) : (e.config ||= {}, e.config[t] = n, this._emitChange());
+					},
+					getFieldValue: (e) => {
+						let n = this.bodyEl.querySelector(`[data-field="${e}"] input, [data-field="${e}"] select, [data-field="${e}"] textarea`) || this.bodyEl.querySelector(`[data-field="${e}"]`);
+						return n ? n.value : t[e];
+					},
+					apiCall: (e, t) => {
+						let n = this._workflow?.host || "", r = e.startsWith("/") && n ? `${n}${e}` : e;
+						return fetch(r, t);
+					},
+					toast: (e, t) => alert(e),
+					openPopup: (e, t, n) => window.open(e, t, n),
+					emitChange: () => this._emitChange()
+				};
+				try {
+					i.onRender(n, a);
+				} catch (e) {
+					console.error(`[ConfigPanel] Error running onRender for "${r}":`, e);
+				}
+			}
+		}), this.bodyEl.querySelectorAll("[data-field]").forEach((e) => {
 			e.classList.contains("wf-condition-builder") || e.classList.contains("wf-router-conditions") || (e.addEventListener("input", (e) => {
 				!e.target.closest(".wf-condition-builder") && !e.target.closest(".wf-router-conditions") && this._emitChange();
 			}), e.addEventListener("change", (e) => {
@@ -1092,142 +1280,208 @@ var e = class {
 			}));
 		}), this.bodyEl.querySelectorAll(".wf-help-icon").forEach((e) => {
 			e.addEventListener("click", (e) => {
-				let n = e.currentTarget.dataset.helpKey, r = t[n];
-				r && this._showHelp(r);
+				let t = o[e.currentTarget.dataset.helpKey];
+				t && this._showHelp(t);
 			});
 		}), this.bodyEl.querySelectorAll(".wf-config-list").forEach((e) => {
-			let t = e.querySelector(".wf-config-list-add-btn"), n = e.querySelector(".wf-config-list-add input"), r = () => {
-				let t = n.value.trim();
-				if (!t) return;
-				let r = e.querySelector(".wf-config-list-items"), i = document.createElement("div");
-				i.className = "wf-config-list-item", i.innerHTML = `
-          <span class="wf-config-list-item-text">${t}</span>
-          <button class="wf-config-list-remove">✕</button>
-        `, r.appendChild(i), n.value = "", this._emitChange();
-			};
-			t.addEventListener("click", r), n.addEventListener("keydown", (e) => {
-				e.key === "Enter" && r();
-			}), e.addEventListener("click", (e) => {
-				e.target.classList.contains("wf-config-list-remove") && (e.target.closest(".wf-config-list-item").remove(), this._emitChange());
-			});
+			this._bindListEvents(e);
 		}), this._bindConditionBuilders(), this._bindRouterBuilders(), this._bindVarPickers();
-		let a = this.bodyEl.querySelector(".wf-auth-type");
-		a && a.addEventListener("change", () => {
-			let e = a.value === "oauth2", t = this.bodyEl.querySelector(".wf-auth-oauth2-fields"), n = this.bodyEl.querySelector(".wf-auth-direct-fields");
-			t && (t.style.display = e ? "block" : "none"), n && (n.style.display = e ? "none" : "block"), this._emitChange();
-		});
-		let o = this.bodyEl.querySelector(".wf-auth-raw-key");
-		o && o.addEventListener("input", () => this._emitChange());
-		let s = this.bodyEl.querySelector(".wf-oauth-connect-btn");
-		if (s && s.addEventListener("click", () => {
+		let d = this.bodyEl.querySelector(".wf-oauth-connect-btn");
+		d && d.addEventListener("click", () => {
 			let t = this._workflow?.connectionId || "default_connection", n = e._apPiece.name;
-			s.disabled = !0, s.innerText = "Authorizing...";
-			let r, i = (e) => {
-				if (e.data && e.data.type === "oauth-success" && e.data.connectionId === t) {
-					console.log(`[OAuth UI] Received success message for connection: ${t}`);
-					let e = this.bodyEl.querySelector(".wf-oauth-status");
-					e && (e.style.display = "block"), s.disabled = !1, s.innerHTML = "✓ Connected", this._node.config || (this._node.config = {}), this._node.config.authConfig || (this._node.config.authConfig = {}), this._node.config.authConfig.oauthConnected = !0, this._emitChange(), window.removeEventListener("message", i), r && clearInterval(r);
-				} else e.data && e.data.type === "oauth-error" && (console.error(`[OAuth UI] Received error message: ${e.data.error}`), alert(`Authentication failed: ${e.data.error}`), s.disabled = !1, s.innerHTML = "\n              <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6\"/></svg>\n              Connect Account\n            ", window.removeEventListener("message", i), r && clearInterval(r));
+			d.disabled = !0, d.textContent = "Connecting...";
+			let r, i = (n) => {
+				n.data && n.data.type === "oauth-success" && n.data.connectionId === t ? (this._node.config || (this._node.config = {}), this._node.config.authConfig = {
+					type: "oauth2",
+					connectionId: t
+				}, this._emitChange(), window.removeEventListener("message", i), r && clearInterval(r), this._pieceAuthStatus = null, this.show(e, this._onChange)) : n.data && n.data.type === "oauth-error" && (alert(`Authentication failed: ${n.data.error}`), d.disabled = !1, d.textContent = `Connect with ${e._apPiece.displayName}`, window.removeEventListener("message", i), r && clearInterval(r));
 			};
 			window.addEventListener("message", i);
-			let a = (window.innerWidth - 600) / 2 + window.screenX, o = (window.innerHeight - 650) / 2 + window.screenY, c = `/api/oauth/connect?pieceName=${encodeURIComponent(n)}&connectionId=${encodeURIComponent(t)}`, l = window.open(c, "OAuthPopup", `width=600,height=650,left=${a},top=${o},status=no,resizable=yes`);
+			let a = (window.innerWidth - 600) / 2 + window.screenX, o = (window.innerHeight - 650) / 2 + window.screenY, s = `${this._workflow?.host || ""}/api/oauth/connect?pieceName=${encodeURIComponent(n)}&connectionId=${encodeURIComponent(t)}`, c = window.open(s, "OAuthPopup", `width=600,height=650,left=${a},top=${o},status=no,resizable=yes`);
 			r = setInterval(() => {
-				(!l || l.closed) && (clearInterval(r), window.removeEventListener("message", i), s.innerText === "Authorizing..." && (s.disabled = !1, s.innerHTML = "\n                <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6\"/></svg>\n                Connect Account\n              "));
+				(!c || c.closed) && (clearInterval(r), window.removeEventListener("message", i), d.textContent === "Connecting..." && (d.disabled = !1, d.textContent = `Connect with ${e._apPiece.displayName}`));
 			}, 1e3);
 		}), this.bodyEl.querySelectorAll(".wf-dynamic-select").forEach((e) => {
-			let r = e.dataset.field || e.closest("[data-field]")?.dataset.field, i = e.id, a = t[r], o = n[r], s = () => {
-				this._loadDynamicDropdown(r, a, i, o);
+			let n = e.dataset.field || e.closest("[data-field]")?.dataset.field, r = e.id, i = o[n], a = t[n], s = () => {
+				this._loadDynamicDropdown(n, i, r, a);
 			};
 			e.addEventListener("focus", s), e.addEventListener("click", s), e.addEventListener("change", () => {
 				this._emitChange(), this.bodyEl.querySelectorAll(".wf-dynamic-select").forEach((t) => {
 					t !== e && delete t.dataset.loaded;
-				});
+				}), this.bodyEl.querySelectorAll(".wf-dynamic-properties-container").forEach((e) => {
+					delete e.dataset.loaded;
+				}), this._loadAllDynamicDropdowns(), this._loadDynamicPropertiesContainers();
 			});
-		}), e._apPiece && e._apPiece.auth) {
-			let t = this._workflow?.connectionId || "default_connection";
-			fetch(`/api/oauth/status?connectionId=${encodeURIComponent(t)}&pieceName=${encodeURIComponent(e._apPiece.name)}`).then((e) => e.json()).then((n) => {
-				if (n.connected && n.pieceName === e._apPiece.name) {
-					if (console.log(`[Status Check] Existing connection found for: ${e._apPiece.name} (Global: ${n.isGlobal})`), n.isGlobal) {
-						let t = this.bodyEl.querySelector("[data-field=\"authConfig\"]");
-						t && (t.innerHTML = "\n                  <div style=\"display:flex; align-items:center; gap:8px; color:#16a34a; font-weight:600; font-size:12px; padding:4px 0;\">\n                    <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>\n                    <span>✓ Authenticated globally by system</span>\n                  </div>\n                "), e.config ||= {}, e.config.authConfig = {
-							type: "global",
-							connectionId: "global",
-							pieceName: e._apPiece.name,
-							oauthConnected: !0
-						}, this._emitChange();
-						return;
-					}
-					if (e._apPiece.auth.type === "OAUTH2") {
-						let n = this.bodyEl.querySelector(".wf-oauth-status");
-						n && (n.style.display = "block");
-						let r = this.bodyEl.querySelector(".wf-oauth-connect-btn");
-						r && (r.innerHTML = "✓ Connected"), e.config ||= {}, e.config.authConfig || (e.config.authConfig = {
-							type: "oauth2",
-							connectionId: t,
-							pieceName: e._apPiece.name
-						}), e.config.authConfig.oauthConnected = !0, this._emitChange();
-					}
-				} else if (e._apPiece.auth.type === "OAUTH2") {
-					let t = this.bodyEl.querySelector(".wf-oauth-status");
-					t && (t.style.display = "none");
-					let n = this.bodyEl.querySelector(".wf-oauth-connect-btn");
-					n && (n.innerHTML = "\n                  <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6\"/></svg>\n                  Connect Account\n                "), e.config && e.config.authConfig && e.config.authConfig.oauthConnected && (e.config.authConfig.oauthConnected = !1, this._emitChange());
+		});
+		let f = this.bodyEl.querySelector("#wf-btn-test-step"), p = this.bodyEl.querySelector("#wf-test-output-box");
+		f && (this._testOutputs[e.id] && (p.style.display = "block", p.style.color = "#10b981", p.textContent = `Cached Output:\n${JSON.stringify(this._testOutputs[e.id], null, 2)}`), f.addEventListener("click", async () => {
+			f.disabled = !0;
+			let t = f.innerHTML;
+			f.textContent = "Testing...", p.style.display = "block", p.style.color = "#94a3b8", p.textContent = "Executing isolated step on server...";
+			try {
+				let t = this._workflow?.host || "", n = this._workflow?.connectionId || "default_connection", r = {
+					...e.config,
+					...this._gatherCurrentConfig()
+				}, i = this.bodyEl.querySelector(".wf-auth-type"), a = this.bodyEl.querySelector("#wf-auth-use-custom");
+				if (i) {
+					let t = e.config?.authConfig?.oauthConnected || !1;
+					r.authConfig = {
+						type: a && !a.checked ? "system" : i.value,
+						connectionId: this._workflow?.connectionId || "default_connection",
+						clientId: this.bodyEl.querySelector(".wf-auth-client-id")?.value || "",
+						clientSecret: this.bodyEl.querySelector(".wf-auth-client-secret")?.value || "",
+						rawApiKey: this.bodyEl.querySelector(".wf-auth-raw-key")?.value || "",
+						pieceName: e._apPiece?.name,
+						oauthConnected: t
+					};
 				}
+				let o = this.bodyEl.querySelector(".wf-condition-builder");
+				if (o) {
+					let e = o.querySelector(".wf-cb-op-btn.active")?.dataset.op || "AND", t = [];
+					o.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
+						let n = e.querySelector(".wf-cb-field-select").value, r = e.querySelector(".wf-cb-custom-field-input").value.trim(), i = n === "__custom__" ? r : n, a = e.querySelector(".wf-cb-operator-select").value, o = e.querySelector(".wf-cb-value-input")?.value || "";
+						i && t.push({
+							field: i,
+							operator: a,
+							value: o
+						});
+					});
+					let n = o.dataset.field;
+					n && (r[n] = {
+						logicalOperator: e,
+						rules: t
+					});
+				}
+				let s = await fetch(`${t}/api/test-node`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						node: {
+							id: e.id,
+							type: e.type,
+							config: r,
+							_apPiece: e._apPiece
+						},
+						connectionId: n,
+						testOutputs: this._testOutputs
+					})
+				}), c = await s.json();
+				if (s.ok && c.success) this._testOutputs[e.id] = c.output, p.style.color = "#10b981", p.textContent = `Cached Output:\n${JSON.stringify(c.output, null, 2)}`, this._render(e);
+				else throw Error(c.error || "Test execution failed");
+			} catch (e) {
+				p.style.color = "#ef4444", p.textContent = `Error: ${e.message}`;
+			} finally {
+				f.disabled = !1, f.innerHTML = t;
+			}
+		})), this._loadAllDynamicDropdowns(), this._loadDynamicPropertiesContainers();
+	}
+	_getUpstreamVariables(e) {
+		let t = [];
+		if (!this._workflow || !this._workflow.state || !e) return t;
+		let n = this._workflow.state, r = /* @__PURE__ */ new Set(), i = [e];
+		for (; i.length > 0;) {
+			let e = i.shift(), t = (n.edges || []).filter((t) => t.toNode === e);
+			for (let e of t) r.has(e.fromNode) || (r.add(e.fromNode), i.push(e.fromNode));
+		}
+		for (let e of r) {
+			let r = n.nodes.get(e);
+			if (!r) continue;
+			let i = r.label || r.id, a = this._testOutputs[e];
+			if (a && typeof a == "object") {
+				let n = [], r = (e, t = "") => {
+					if (e != null) {
+						if (typeof e != "object") {
+							n.push(t);
+							return;
+						}
+						if (Array.isArray(e)) {
+							n.push(t), e.slice(0, 3).forEach((e, n) => {
+								r(e, t ? `${t}.${n}` : `${n}`);
+							});
+							return;
+						}
+						for (let [n, i] of Object.entries(e)) r(i, t ? `${t}.${n}` : n);
+					}
+				};
+				try {
+					r(a);
+				} catch (t) {
+					console.error("[ConfigPanel] Error flattening test output for node " + e, t);
+				}
+				n.forEach((n) => {
+					t.push({
+						name: `steps.${e}.output.${n}`,
+						label: `${i} ⟶ ${n}`
+					});
+				});
+			} else a == null ? t.push({
+				name: `steps.${e}.output`,
+				label: `${i} ⟶ Full Output`
+			}) : t.push({
+				name: `steps.${e}.output`,
+				label: `${i} ⟶ output`
 			});
 		}
+		return t;
 	}
 	_variablePickerHTML(e) {
-		return !this._workflow || !this._workflow.availableVariables || !this._workflow.availableVariables.length ? "" : `
+		let t = this._workflow?.availableVariables || [], n = this._getUpstreamVariables(this._nodeId);
+		return !t.length && !n.length ? "" : `
       <button type="button" class="wf-var-picker-btn" data-target="${e}" title="Insert Variable">
         {x}
       </button>
     `;
 	}
 	_bindVarPickers() {
-		this.bodyEl.querySelectorAll(".wf-var-picker-btn").forEach((e) => {
-			e.addEventListener("click", (t) => {
-				t.stopPropagation();
-				let n = e.dataset.target, r = this.bodyEl.querySelector(`#${n}`);
-				if (!r) return;
-				let i = document.querySelector(".wf-var-popover");
-				i && i.remove();
-				let a = document.createElement("div");
-				a.className = "wf-var-popover", a.innerHTML = `
-          <div class="wf-var-popover-search">
-            <input type="text" placeholder="Search variables..." class="wf-var-search-input" autofocus>
-          </div>
-          <div class="wf-var-popover-list">
-            ${this._workflow.availableVariables.map((e) => `
-              <div class="wf-var-popover-item" data-var="${e.name}">
-                <span class="wf-var-item-label">${e.label}</span>
-                <span class="wf-var-item-name">{{${e.name}}}</span>
-              </div>
-            `).join("")}
-          </div>
-        `, document.body.appendChild(a);
-				let o = e.getBoundingClientRect();
-				a.style.top = `${o.bottom + window.scrollY + 5}px`, a.style.left = `${Math.max(10, o.left + window.scrollX - 120)}px`;
-				let s = a.querySelector(".wf-var-search-input"), c = a.querySelectorAll(".wf-var-popover-item");
-				s.focus(), s.addEventListener("input", (e) => {
-					let t = e.target.value.toLowerCase();
-					c.forEach((e) => {
-						let n = e.querySelector(".wf-var-item-label").textContent.toLowerCase(), r = e.querySelector(".wf-var-item-name").textContent.toLowerCase();
-						n.includes(t) || r.includes(t) ? e.style.display = "flex" : e.style.display = "none";
-					});
-				}), a.querySelectorAll(".wf-var-popover-item").forEach((e) => {
-					e.addEventListener("click", () => {
-						let t = `{{${e.dataset.var}}}`, n = r.selectionStart ?? r.value.length, i = r.selectionEnd ?? r.value.length, o = r.value;
-						r.value = o.substring(0, n) + t + o.substring(i), r.focus();
-						let s = n + t.length;
-						r.setSelectionRange(s, s), a.remove(), this._emitChange();
-					});
+		this._varPickerBound || (this._varPickerBound = !0, this.bodyEl.addEventListener("click", (e) => {
+			let t = e.target.closest(".wf-var-picker-btn");
+			if (!t) return;
+			e.stopPropagation();
+			let n = t.dataset.target, r = this.bodyEl.querySelector(`#${n}`);
+			if (!r) return;
+			let i = document.querySelector(".wf-var-popover");
+			i && i.remove();
+			let a = document.createElement("div");
+			a.className = "wf-var-popover";
+			let o = this._workflow?.availableVariables || [], s = this._getUpstreamVariables(this._nodeId), c = [...o, ...s];
+			a.innerHTML = `
+        <div class="wf-var-popover-search">
+          <input type="text" placeholder="Search variables..." class="wf-var-search-input" autofocus>
+        </div>
+        <div class="wf-var-popover-list">
+          ${c.map((e) => `
+            <div class="wf-var-popover-item" data-var="${e.name}">
+              <span class="wf-var-item-label">${e.label}</span>
+              <span class="wf-var-item-name">{{${e.name}}}</span>
+            </div>
+          `).join("")}
+          ${c.length === 0 ? "\n            <div style=\"padding: 10px; font-size: 11px; color: var(--wf-text-muted); text-align: center;\">No variables available</div>\n          " : ""}
+        </div>
+      `, document.body.appendChild(a);
+			let l = t.getBoundingClientRect(), u = a.offsetWidth || 240, d = a.offsetHeight || 250, f = window.innerHeight - l.bottom, p = l.top, m;
+			f < d && p > f ? (m = l.top + window.scrollY - d - 5, a.style.transformOrigin = "bottom center") : (m = l.bottom + window.scrollY + 5, a.style.transformOrigin = "top center");
+			let h = l.left + window.scrollX + l.width / 2 - u / 2, g = window.innerWidth + window.scrollX - u - 10;
+			h = Math.max(10, Math.min(h, g)), a.style.top = `${m}px`, a.style.left = `${h}px`;
+			let _ = a.querySelector(".wf-var-search-input"), v = a.querySelectorAll(".wf-var-popover-item");
+			_.focus(), _.addEventListener("input", (e) => {
+				let t = e.target.value.toLowerCase();
+				v.forEach((e) => {
+					let n = e.querySelector(".wf-var-item-label").textContent.toLowerCase(), r = e.querySelector(".wf-var-item-name").textContent.toLowerCase();
+					n.includes(t) || r.includes(t) ? e.style.display = "flex" : e.style.display = "none";
 				});
-				let l = (t) => {
-					!a.contains(t.target) && t.target !== e && (a.remove(), document.removeEventListener("mousedown", l));
-				};
-				document.addEventListener("mousedown", l);
+			}), a.querySelectorAll(".wf-var-popover-item").forEach((e) => {
+				e.addEventListener("click", () => {
+					let t = `{{${e.dataset.var}}}`, n = r.selectionStart ?? r.value.length, i = r.selectionEnd ?? r.value.length, o = r.value;
+					r.value = o.substring(0, n) + t + o.substring(i), r.focus();
+					let s = n + t.length;
+					r.setSelectionRange(s, s), a.remove(), this._emitChange();
+				});
 			});
-		});
+			let y = (e) => {
+				!a.contains(e.target) && e.target !== t && (a.remove(), document.removeEventListener("mousedown", y));
+			};
+			document.addEventListener("mousedown", y);
+		}));
 	}
 	_conditionRuleHTML(e, t, n = "") {
 		let r = this._workflow?.availableVariables || [], i = e.field || "", a = e.operator || "equals", o = e.value === void 0 ? "" : e.value, s = [
@@ -1267,7 +1521,7 @@ var e = class {
 				value: "is_not_empty",
 				label: "Is Not Empty"
 			}
-		], c = r.some((e) => e.name === i);
+		], c = r.some((e) => e.name === i), l = `${n ? n + "-" : ""}rule-custom-field-${t}`, u = `${n ? n + "-" : ""}rule-value-${t}`, d = this._variablePickerHTML(l), f = this._variablePickerHTML(u);
 		return `
       <div class="wf-cb-rule-row" data-index="${t}">
         <div class="wf-cb-rule-inputs">
@@ -1280,10 +1534,14 @@ var e = class {
               <option value="__custom__" ${!c && i !== "" ? "selected" : ""}>Custom Path...</option>
             </select>
             
-            <input type="text" class="wf-input wf-cb-custom-field-input" 
-                   value="${!c && i !== "" ? i : ""}" 
-                   placeholder="e.g. user.profile.age"
-                   style="display: ${!c && i !== "" ? "block" : "none"}; margin-top: 4px;">
+            <div class="wf-input-with-picker" style="display: ${!c && i !== "" ? "flex" : "none"}; align-items: center; gap: 4px; margin-top: 4px;">
+              <input type="text" class="wf-input wf-cb-custom-field-input" 
+                     id="${l}"
+                     value="${!c && i !== "" ? i : ""}" 
+                     placeholder="e.g. user.profile.age"
+                     style="flex: 1;">
+              ${d}
+            </div>
           </div>
           
           <select class="wf-input wf-cb-operator-select">
@@ -1292,8 +1550,9 @@ var e = class {
             `).join("")}
           </select>
           
-          <div class="wf-cb-value-wrap" style="display: ${a === "is_empty" || a === "is_not_empty" ? "none" : "block"}">
-            <input type="text" class="wf-input wf-cb-value-input" value="${o}" placeholder="Value...">
+          <div class="wf-cb-value-wrap" style="display: ${a === "is_empty" || a === "is_not_empty" ? "none" : "flex"}; align-items: center; gap: 4px;">
+            <input type="text" class="wf-input wf-cb-value-input" id="${u}" value="${o}" placeholder="Value..." style="flex: 1;">
+            ${f}
           </div>
         </div>
         <button type="button" class="wf-cb-remove-btn">✕</button>
@@ -1324,12 +1583,12 @@ var e = class {
 		});
 	}
 	_bindRuleRowEvents(e) {
-		let t = e.querySelector(".wf-cb-field-select"), n = e.querySelector(".wf-cb-custom-field-input"), r = e.querySelector(".wf-cb-operator-select"), i = e.querySelector(".wf-cb-value-wrap"), a = e.querySelector(".wf-cb-remove-btn");
+		let t = e.querySelector(".wf-cb-field-select"), n = e.querySelector(".wf-cb-custom-field-input"), r = n.closest(".wf-input-with-picker") || n, i = e.querySelector(".wf-cb-operator-select"), a = e.querySelector(".wf-cb-value-wrap"), o = e.querySelector(".wf-cb-remove-btn");
 		t.addEventListener("change", () => {
-			t.value === "__custom__" ? (n.style.display = "block", n.focus()) : (n.style.display = "none", n.value = ""), this._emitChange();
-		}), n.addEventListener("input", () => this._emitChange()), r.addEventListener("change", () => {
-			r.value === "is_empty" || r.value === "is_not_empty" ? i.style.display = "none" : i.style.display = "block", this._emitChange();
-		}), e.querySelector(".wf-cb-value-input")?.addEventListener("input", () => this._emitChange()), a.addEventListener("click", () => {
+			t.value === "__custom__" ? (r.style.display = "flex", n.focus()) : (r.style.display = "none", n.value = ""), this._emitChange();
+		}), n.addEventListener("input", () => this._emitChange()), i.addEventListener("change", () => {
+			i.value === "is_empty" || i.value === "is_not_empty" ? a.style.display = "none" : a.style.display = "flex", this._emitChange();
+		}), e.querySelector(".wf-cb-value-input")?.addEventListener("input", () => this._emitChange()), o.addEventListener("click", () => {
 			let t = e.parentElement;
 			e.remove(), t.querySelectorAll(".wf-cb-rule-row").forEach((e, t) => {
 				e.dataset.index = t;
@@ -1360,38 +1619,49 @@ var e = class {
 			});
 		});
 	}
-	_fieldHTML(e, t, n, r) {
-		let i = n === void 0 ? t.default ?? "" : n, a = `wf-field-${e}`, o = t.type === "text" || t.type === "textarea" || t.type === "code" || t.type === "number" ? this._variablePickerHTML(a) : "", s = t.help ? `<span class="wf-help-icon" data-help-key="${e}" title="Get help">?</span>` : "", c = (n) => `
+	_fieldHTML(e, t, n, r, i = !1, a = null) {
+		let o = n === void 0 ? t.default ?? "" : n, s = a || `wf-field-${e}`, c = i ? `data-sub-field="${e}"` : `data-field="${e}"`, l = t.type === "text" || t.type === "textarea" || t.type === "code" || t.type === "number" || t.type === "password" || t.type === "file" ? this._variablePickerHTML(s) : "", u = t.help ? `<span class="wf-help-icon" data-help-key="${e}" title="Get help">?</span>` : "", d = t.description && t.type !== "list" && t.type !== "custom_html" ? `<div class="wf-field-description" style="font-size:11px; color:#94a3b8; margin-top:4px; line-height:1.4;">${t.description}</div>` : "", f = i, p = (n) => `
       <div class="wf-config-field" style="position: relative;">
         <div class="wf-config-field-label-row">
-          <label for="${a}">${t.label || e}</label>
+          <label for="${s}">${t.label || e}</label>
           <div class="wf-config-field-actions">
-            ${o}
-            ${s}
+            ${f ? "" : l}
+            ${u}
           </div>
         </div>
-        ${n}
+        ${f && l ? `
+          <div class="wf-input-with-picker">
+            ${n}
+            ${l}
+          </div>
+        ` : n}
+        ${d}
       </div>
     `;
 		switch (t.type) {
+			case "custom_html": return `
+          <div class="wf-custom-html-field" data-custom-html-key="${e}" style="margin-bottom:12px;">
+            ${t.html || ""}
+          </div>
+        `;
 			case "condition_builder":
-				let n = i && typeof i == "object" ? i : {
+				let n = o && typeof o == "object" ? o : {
 					logicalOperator: "AND",
 					rules: []
-				}, o = Array.isArray(n.rules) ? n.rules : [], s = n.logicalOperator || "AND";
-				return c(`
-          <div class="wf-condition-builder" id="${a}" data-field="${e}">
+				}, i = Array.isArray(n.rules) ? n.rules : [], a = n.logicalOperator || "AND";
+				return p(`
+          <div class="wf-condition-builder" id="${s}" ${c}>
             <div class="wf-cb-header">
               <span class="wf-cb-desc">Match if</span>
               <div class="wf-cb-operator-toggle">
-                <button type="button" class="wf-cb-op-btn ${s === "AND" ? "active" : ""}" data-op="AND">ALL (AND)</button>
-                <button type="button" class="wf-cb-op-btn ${s === "OR" ? "active" : ""}" data-op="OR">ANY (OR)</button>
+                <button type="button" class="wf-cb-op-btn ${a === "AND" ? "active" : ""}" data-op="AND">ALL (AND)</button>
+                <button type="button" class="wf-cb-op-btn ${a === "OR" ? "active" : ""}" data-op="OR">ANY (OR)</button>
               </div>
             </div>
             
             <div class="wf-cb-rules">
-              ${o.map((e, t) => this._conditionRuleHTML(e, t)).join("")}
-              ${o.length === 0 ? "\n                <div class=\"wf-cb-empty\">No conditions defined yet. Add one below to filter.</div>\n              " : ""}
+              ${i.map((e, t) => this._conditionRuleHTML(e, t)).join("")}
+              ${i.length === 0 ? "\n                <div class=\"wf-cb-empty\">No conditions defined yet. Add one below to filter.</div>\n              " : ""}
             </div>
             
             <button type="button" class="wf-cb-add-btn">
@@ -1401,9 +1671,9 @@ var e = class {
           </div>
         `);
 			case "router_conditions":
-				let l = r.routes || [], u = i && typeof i == "object" ? i : {};
-				return c(`
-          <div class="wf-router-conditions" id="${a}" data-field="${e}">
+				let l = r.routes || [], u = o && typeof o == "object" ? o : {};
+				return p(`
+          <div class="wf-router-conditions" id="${s}" ${c}>
             ${l.map((e) => {
 					let t = u[e] || {
 						logicalOperator: "AND",
@@ -1436,109 +1706,149 @@ var e = class {
 				}).join("")}
           </div>
         `);
-			case "list": return c(`
-          <div class="wf-config-list" id="${a}" data-field="${e}">
+			case "list":
+				let d = Array.isArray(o) ? o : [], f = this._variablePickerHTML(`${s}-add-input`);
+				return p(`
+          <div class="wf-config-list" id="${s}" ${c}>
             <div class="wf-config-list-items">
-              ${(Array.isArray(i) ? i : []).map((e) => `
+              ${d.map((e) => `
                 <div class="wf-config-list-item">
                   <span class="wf-config-list-item-text">${e}</span>
                   <button class="wf-config-list-remove">✕</button>
                 </div>
               `).join("")}
             </div>
-            <div class="wf-config-list-add">
-              <input type="text" class="wf-input" placeholder="Add item...">
-              <button class="wf-config-list-add-btn">Add</button>
+            <div class="wf-config-list-add" style="display: flex; align-items: center; gap: 6px;">
+              <input type="text" id="${s}-add-input" class="wf-input" placeholder="Enter value then click Add." style="flex: 1;">
+              ${f}
+              <button class="wf-config-list-add-btn" type="button">Add</button>
             </div>
             ${t.description ? `<div class="wf-config-list-description">${t.description}</div>` : ""}
           </div>
         `);
-			case "textarea": return c(`<textarea id="${a}" class="wf-input wf-textarea" data-field="${e}" rows="3">${i}</textarea>`);
-			case "code": return c(`<textarea id="${a}" class="wf-input wf-code" data-field="${e}" rows="4" spellcheck="false">${i}</textarea>`);
-			case "number": return c(`<input type="number" id="${a}" class="wf-input" data-field="${e}" value="${i}">`);
-			case "boolean": return c(`
-          <label class="wf-toggle" data-field="${e}">
-            <input type="checkbox" id="${a}" ${i ? "checked" : ""}>
+			case "textarea": return p(`<textarea id="${s}" class="wf-input wf-textarea" ${c} rows="3">${o}</textarea>`);
+			case "code": return p(`<textarea id="${s}" class="wf-input wf-code" ${c} rows="4" spellcheck="false">${typeof o == "object" && o ? JSON.stringify(o, null, 2) : o}</textarea>`);
+			case "number": return p(`<input type="number" id="${s}" class="wf-input" ${c} value="${o}">`);
+			case "boolean": return p(`
+          <label class="wf-toggle" ${c}>
+            <input type="checkbox" id="${s}" ${o ? "checked" : ""}>
             <span class="wf-toggle-track"></span>
           </label>
         `);
-			case "select": return c(`
-          <select id="${a}" class="wf-input wf-select" data-field="${e}">
-            ${(t.options || []).map((e) => `<option value="${e}" ${e === i ? "selected" : ""}>${e}</option>`).join("")}
+			case "select": return p(`
+          <select id="${s}" class="wf-input wf-select" ${c}>
+            ${(t.options || []).map((e) => `<option value="${e.value === void 0 ? e : e.value}" ${String(e.value === void 0 ? e : e.value) === String(o) ? "selected" : ""}>${e.label === void 0 ? e : e.label}</option>`).join("")}
           </select>
         `);
-			case "dynamic-select": return c(`
-          <select id="${a}" class="wf-input wf-select wf-dynamic-select" data-field="${e}">
+			case "dynamic-select": return p(`
+          <select id="${s}" class="wf-input wf-select wf-dynamic-select" ${c}>
             <option value="">-- Click to Load / Select --</option>
-            ${i ? `<option value="${i}" selected>${i}</option>` : ""}
+            ${o != null && o !== "" ? `<option value="${o}" selected>${o}</option>` : ""}
           </select>
         `);
-			case "color": return c(`<input type="color" id="${a}" class="wf-input wf-color" data-field="${e}" value="${i}">`);
-			default: return c(`<input type="text" id="${a}" class="wf-input" data-field="${e}" value="${i}" placeholder="${t.placeholder || ""}">`);
+			case "dynamic-properties": return p(`
+          <div class="wf-dynamic-properties-container" id="${s}" ${c} data-type="dynamic-properties" style="border:1px dashed var(--wf-border); border-radius:6px; padding:12px; background:rgba(0,0,0,0.15);">
+            <div style="font-size:12px; color:#94a3b8; text-align:center;">Loading sub-properties...</div>
+          </div>
+        `);
+			case "color": return p(`<input type="color" id="${s}" class="wf-input wf-color" ${c} value="${o}">`);
+			case "file": return p(`<input type="text" id="${s}" class="wf-input" ${c} value="${o}" placeholder="${t.placeholder || "Enter file URL or insert variable..."}">`);
+			case "password": return p(`<input type="password" id="${s}" class="wf-input" ${c} value="${o}" placeholder="${t.placeholder || ""}">`);
+			default: return p(`<input type="text" id="${s}" class="wf-input" ${c} value="${o}" placeholder="${t.placeholder || ""}">`);
 		}
 	}
 	_emitChange() {
 		if (!this._onChange) return;
-		let e = {}, t = { ...this._node.configSchema || {} };
-		if (this._node._apPiece && this._node.config?.actionName) {
-			let e = this._node._apPiece.actions[this._node.config.actionName];
-			if (e && e.properties) for (let [n, r] of Object.entries(e.properties)) {
-				let e = "text";
-				r.type === "LONG_TEXT" ? e = "textarea" : r.type === "NUMBER" ? e = "number" : r.type === "CHECKBOX" ? e = "boolean" : r.type === "STATIC_DROPDOWN" ? e = "select" : r.type === "DYNAMIC_DROPDOWN" ? e = "dynamic-select" : r.type === "DYNAMIC" ? e = "textarea" : r.type === "JSON" && (e = "code"), t[n] = { type: e };
-			}
-		}
-		let n = this.bodyEl.querySelector(".wf-auth-type");
-		if (n) {
-			let t = this._node.config?.authConfig?.oauthConnected || !1;
+		let e = this._gatherCurrentConfig();
+		if (this._node.config?.authConfig) {
+			let { type: t, connectionId: n } = this._node.config.authConfig;
 			e.authConfig = {
-				type: n.value,
-				connectionId: this._workflow?.connectionId || "default_connection",
-				clientId: this.bodyEl.querySelector(".wf-auth-client-id")?.value || "",
-				clientSecret: this.bodyEl.querySelector(".wf-auth-client-secret")?.value || "",
-				rawApiKey: this.bodyEl.querySelector(".wf-auth-raw-key")?.value || "",
-				pieceName: this._node._apPiece.name,
-				oauthConnected: t
+				type: t || "system",
+				connectionId: n || this._workflow?.connectionId || "default_connection"
 			};
 		}
-		for (let [n, r] of Object.entries(t)) {
-			let t = this.bodyEl.querySelector(`[data-field="${n}"]`);
-			if (t) if (r.type === "list") e[n] = Array.from(t.querySelectorAll(".wf-config-list-item-text")).map((e) => e.textContent);
-			else if (r.type === "boolean") {
-				let r = t.querySelector("input[type=\"checkbox\"]");
-				e[n] = r ? r.checked : !1;
-			} else if (r.type === "condition_builder") {
-				let r = t.querySelector(".wf-cb-op-btn.active")?.dataset.op || "AND", i = [];
-				t.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
-					let t = e.querySelector(".wf-cb-field-select").value, n = e.querySelector(".wf-cb-custom-field-input").value.trim(), r = t === "__custom__" ? n : t, a = e.querySelector(".wf-cb-operator-select").value, o = e.querySelector(".wf-cb-value-input")?.value || "";
-					r && i.push({
-						field: r,
-						operator: a,
-						value: o
-					});
-				}), e[n] = {
-					logicalOperator: r,
-					rules: i
-				}, e.expression = this._compileRulesToJS(r, i);
-			} else if (r.type === "router_conditions") {
-				let r = {};
-				t.querySelectorAll(".wf-router-route-card").forEach((e) => {
-					let t = e.dataset.route, n = e.querySelector(".wf-cb-op-btn.active")?.dataset.op || "AND", i = [];
-					e.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
-						let t = e.querySelector(".wf-cb-field-select").value, n = e.querySelector(".wf-cb-custom-field-input").value.trim(), r = t === "__custom__" ? n : t, a = e.querySelector(".wf-cb-operator-select").value, o = e.querySelector(".wf-cb-value-input")?.value || "";
-						r && i.push({
-							field: r,
-							operator: a,
-							value: o
-						});
-					}), r[t] = {
-						logicalOperator: n,
-						rules: i
-					};
-				}), e[n] = r;
-			} else e[n] = (t.querySelector("input, select, textarea") || t).value;
+		let t = this.bodyEl.querySelector("[data-field=\"actionName\"] select");
+		t && (e.actionName = t.value);
+		let n = this.bodyEl.querySelector("#wf-config-advanced-toggle");
+		if (n) {
+			let t = !!this._node.config?._showAdvanced, r = n.checked;
+			if (e._showAdvanced = r, t !== r) {
+				this._node.config || (this._node.config = {}), this._node.config._showAdvanced = r, this._render(this._node);
+				return;
+			}
+		} else e._showAdvanced = this._node.config?._showAdvanced || !1;
+		let r = this._getResolvedSchema(this._node);
+		for (let [t, n] of Object.entries(r)) n.type === "condition_builder" && e[t] && (e.expression = this._compileRulesToJS(e[t].logicalOperator, e[t].rules));
+		let i = !1;
+		this.bodyEl.querySelectorAll(".wf-config-field-error").forEach((e) => e.remove()), this.bodyEl.querySelectorAll(".wf-field-invalid").forEach((e) => e.classList.remove("wf-field-invalid"));
+		for (let [t, n] of Object.entries(r)) {
+			let r = this.bodyEl.querySelector(`[data-field="${t}"]`);
+			if (!r) continue;
+			let a = e[t], o = null;
+			if (n.required && (a == null || a === "") && (o = `${n.label || t} is required`), !o && typeof n.validate == "function" && (o = n.validate(a, { getFieldValue: (t) => e[t] })), o) {
+				i = !0;
+				let e = r.closest(".wf-config-field") || r;
+				e.classList.add("wf-field-invalid");
+				let t = document.createElement("div");
+				t.className = "wf-config-field-error", t.style = "color: #ef4444; font-size: 11px; margin-top: 4px; font-weight: 500;", t.innerText = o, e.appendChild(t);
+			}
 		}
-		let r = this.bodyEl.querySelector("[data-field=\"actionName\"] select");
-		r && (e.actionName = r.value), this._onChange(this._nodeId, e);
+		this._node.invalid = i, this._onChange(this._nodeId, e);
+	}
+	_getResolvedSchema(e) {
+		let t = e.configSchema || {}, n = e.config || {}, r = e._apPiece ? e._apPiece.name || e.type.replace(/^ap_/, "") : null, i = r ? c[r] : null, a = i && n.actionName ? i.actions?.[n.actionName] : null;
+		if (e._apPiece) {
+			let r = {};
+			if (n.actionName) {
+				let t = e._apPiece.actions[n.actionName];
+				if (t && t.properties) for (let [e, n] of Object.entries(t.properties)) {
+					let t = "text";
+					n.type === "LONG_TEXT" ? t = "textarea" : n.type === "NUMBER" ? t = "number" : n.type === "CHECKBOX" ? t = "boolean" : n.type === "STATIC_DROPDOWN" ? t = "select" : n.type === "DYNAMIC_DROPDOWN" ? t = "dynamic-select" : n.type === "DYNAMIC" ? t = "dynamic-properties" : n.type === "JSON" ? t = "code" : n.type === "FILE" ? t = "file" : n.type === "ARRAY" && (t = "list"), r[e] = {
+						type: t,
+						label: n.displayName || e,
+						default: n.defaultValue || "",
+						placeholder: n.placeholder || "",
+						required: n.required || !1,
+						options: n.options ? (n.options.options || []).map((e) => e.value || e) : []
+					};
+				}
+			}
+			let o = { actionName: {
+				type: "select",
+				label: "Action",
+				required: !0,
+				options: Object.entries(e._apPiece.actions).map(([e, t]) => ({
+					value: e,
+					label: t.displayName
+				}))
+			} };
+			if (Object.assign(o, r), i?.fields) for (let [e, t] of Object.entries(i.fields)) o[e] = { ...t };
+			if (a?.fields) for (let [e, t] of Object.entries(a.fields)) o[e] = {
+				...o[e],
+				...t
+			};
+			for (let [e, t] of Object.entries(o)) {
+				let n = i?.fields?.[e], r = a?.fields?.[e];
+				n && Object.assign(t, n), r && Object.assign(t, r);
+			}
+			if (i) {
+				let e = {};
+				if (n._showAdvanced) Object.assign(e, o);
+				else {
+					let t = i.order || ["actionName", "*actionFields*"];
+					a || (t = [
+						...Object.keys(i.fields || {}),
+						"actionName",
+						"*actionFields*"
+					]);
+					let n = a?.order || Object.keys(r);
+					for (let r of t) if (r === "*actionFields*") for (let t of n) o[t] && (e[t] = o[t]);
+					else o[r] && (e[r] = o[r]);
+				}
+				t = e;
+			} else t = o;
+		}
+		return t;
 	}
 	_compileRulesToJS(e, t) {
 		if (!t || !t.length) return "true";
@@ -1560,17 +1870,107 @@ var e = class {
 		return n.join(r);
 	}
 	_gatherCurrentConfig() {
-		let e = {};
-		return this.bodyEl.querySelectorAll("[data-field]").forEach((t) => {
-			let n = t.dataset.field;
-			if (!n || n === "authConfig") return;
-			let r = t.tagName.toLowerCase();
-			if (r === "input" || r === "select" || r === "textarea") {
-				e[n] = t.value;
+		let e = {}, t = this._getResolvedSchema(this._node);
+		return this.bodyEl.querySelectorAll("[data-field]").forEach((n) => {
+			let r = n.dataset.field;
+			if (!r || r === "authConfig") return;
+			let i = t[r];
+			if (!i) return;
+			let a = n.tagName === "SELECT" ? n : n.querySelector("select"), o = a && a.classList.contains("wf-dynamic-select");
+			if (a && (a.dataset.loading === "true" || o && a.dataset.loaded !== "true") && this._node.config && this._node.config[r] !== void 0) {
+				e[r] = this._node.config[r];
 				return;
 			}
-			let i = t.querySelector("input, select, textarea");
-			i && (i.type === "checkbox" ? e[n] = i.checked : e[n] = i.value);
+			let s = n.querySelector(".wf-dynamic-properties-container");
+			if (i.type === "dynamic-properties" || s) {
+				if ((s && (s.dataset.loading === "true" || s.dataset.loaded !== "true") || n.querySelectorAll("[data-sub-field]").length === 0) && this._node.config && this._node.config[r] !== void 0) {
+					e[r] = this._node.config[r];
+					return;
+				}
+				let t = (e) => {
+					let t = e.value;
+					if (e.type === "checkbox") return e.checked;
+					if (e.tagName === "SELECT" && e._originalOptions) {
+						let n = e._originalOptions.find((e) => String(e.value) === t);
+						if (n) return n.value;
+					}
+					return t;
+				}, i = {};
+				n.querySelectorAll("[data-sub-field]").forEach((e) => {
+					let n = e.dataset.subField;
+					if (!n) return;
+					if (e.classList.contains("wf-config-list")) {
+						i[n] = Array.from(e.querySelectorAll(".wf-config-list-item-text")).map((e) => e.textContent);
+						return;
+					}
+					let r = e.tagName.toLowerCase();
+					if (r === "input" || r === "select" || r === "textarea") {
+						i[n] = t(e);
+						return;
+					}
+					let a = e.querySelector("input, select, textarea");
+					a && (i[n] = t(a));
+				}), e[r] = i;
+				return;
+			}
+			let c = (e) => {
+				let t = e.value;
+				if (e.type === "checkbox") return e.checked;
+				if (e.tagName === "SELECT" && e._originalOptions) {
+					let n = e._originalOptions.find((e) => String(e.value) === t);
+					if (n) return n.value;
+				}
+				return t;
+			};
+			if (i.type === "list" || n.classList.contains("wf-config-list") || n.querySelector(".wf-config-list")) {
+				e[r] = Array.from(n.querySelectorAll(".wf-config-list-item-text")).map((e) => e.textContent);
+				return;
+			}
+			if (i.type === "boolean") {
+				let t = n.querySelector("input[type=\"checkbox\"]");
+				e[r] = t ? t.checked : !1;
+				return;
+			}
+			if (i.type === "condition_builder") {
+				let t = n.querySelector(".wf-cb-op-btn.active")?.dataset.op || "AND", i = [];
+				n.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
+					let t = e.querySelector(".wf-cb-field-select").value, n = e.querySelector(".wf-cb-custom-field-input").value.trim(), r = t === "__custom__" ? n : t, a = e.querySelector(".wf-cb-operator-select").value, o = e.querySelector(".wf-cb-value-input")?.value || "";
+					r && i.push({
+						field: r,
+						operator: a,
+						value: o
+					});
+				}), e[r] = {
+					logicalOperator: t,
+					rules: i
+				};
+				return;
+			}
+			if (i.type === "router_conditions") {
+				let t = {};
+				n.querySelectorAll(".wf-router-route-card").forEach((e) => {
+					let n = e.dataset.route, r = e.querySelector(".wf-cb-op-btn.active")?.dataset.op || "AND", i = [];
+					e.querySelectorAll(".wf-cb-rule-row").forEach((e) => {
+						let t = e.querySelector(".wf-cb-field-select").value, n = e.querySelector(".wf-cb-custom-field-input").value.trim(), r = t === "__custom__" ? n : t, a = e.querySelector(".wf-cb-operator-select").value, o = e.querySelector(".wf-cb-value-input")?.value || "";
+						r && i.push({
+							field: r,
+							operator: a,
+							value: o
+						});
+					}), t[n] = {
+						logicalOperator: r,
+						rules: i
+					};
+				}), e[r] = t;
+				return;
+			}
+			let l = n.tagName.toLowerCase();
+			if (l === "input" || l === "select" || l === "textarea") {
+				e[r] = c(n);
+				return;
+			}
+			let u = n.querySelector("input, select, textarea");
+			u && (e[r] = c(u));
 		}), e;
 	}
 	async _loadDynamicDropdown(e, t, n, r) {
@@ -1588,7 +1988,7 @@ var e = class {
 				pieceName: this._node._apPiece.name
 			}, r = a.actionName || this._node.config?.actionName;
 			console.log(`[Dynamic Dropdown] Loading "${e}" for action "${r}" with propsValue:`, s);
-			let c = await (await fetch("/api/options", {
+			let c = this._workflow?.host || "", l = await (await fetch(`${c}/api/options`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -1599,26 +1999,150 @@ var e = class {
 					propsValue: s
 				})
 			})).json();
-			if (i.dataset.loading = "false", c.error) throw Error(c.error);
-			if (c.disabled) {
-				i.innerHTML = `<option value="">${c.placeholder || "Select a prerequisite first"}</option>`;
+			if (i.dataset.loading = "false", l.error) throw Error(l.error);
+			if (l.disabled) {
+				i.innerHTML = `<option value="">${l.placeholder || "Select a prerequisite first"}</option>`;
 				return;
 			}
-			i.innerHTML = "<option value=\"\">-- Select an option --</option>" + (c.options || []).map((e) => `<option value="${e.value}" ${e.value === o ? "selected" : ""}>${e.label || e.value}</option>`).join(""), i.dataset.loaded = "true";
+			i._originalOptions = l.options || [], i.innerHTML = "<option value=\"\">-- Select an option --</option>" + (l.options || []).map((e) => `<option value="${e.value}" ${String(e.value) === String(o) ? "selected" : ""}>${e.label || e.value}</option>`).join(""), i.dataset.loaded = "true", this._emitChange(), this._loadDynamicPropertiesContainers();
 		} catch (e) {
 			i.dataset.loading = "false", console.error("Failed to load dynamic options:", e), i.innerHTML = `<option value="">Failed to load: ${e.message}</option>`;
 		}
 	}
-}, l = class {
-	constructor(e) {
-		this.container = e, this.workflow = null, this._buildShell(), this._bindKeyboard();
+	_bindListEvents(e) {
+		let t = e.querySelector(".wf-config-list-add-btn"), n = e.querySelector(".wf-config-list-add input");
+		if (!t || !n) return;
+		let r = () => {
+			let t = n.value.trim();
+			if (!t) return;
+			let r = e.querySelector(".wf-config-list-items"), i = document.createElement("div");
+			i.className = "wf-config-list-item", i.innerHTML = `
+        <span class="wf-config-list-item-text">${t}</span>
+        <button class="wf-config-list-remove">✕</button>
+      `, r.appendChild(i), n.value = "", this._emitChange();
+		};
+		t.addEventListener("click", r), n.addEventListener("keydown", (e) => {
+			e.key === "Enter" && r();
+		}), e.addEventListener("click", (e) => {
+			e.target.classList.contains("wf-config-list-remove") && (e.target.closest(".wf-config-list-item").remove(), this._emitChange());
+		});
+	}
+	async _loadAllDynamicDropdowns() {
+		let e = this.bodyEl.querySelectorAll(".wf-dynamic-select"), t = this._getResolvedSchema(this._node);
+		for (let n of e) {
+			let e = n.dataset.field || n.closest("[data-field]")?.dataset.field, r = n.id, i = t[e], a = this._node.config?.[e];
+			i && await this._loadDynamicDropdown(e, i, r, a);
+		}
+	}
+	async _loadDynamicPropertiesContainers() {
+		let e = this.bodyEl.querySelectorAll("[data-type=\"dynamic-properties\"]");
+		for (let t of e) {
+			let e = t.dataset.field, n = t.id, r = this._node.config?.[e] || {};
+			await this._loadDynamicProperties(e, n, r);
+		}
+	}
+	async _loadDynamicProperties(e, t, n) {
+		let r = this.bodyEl.querySelector(`#${t}`);
+		if (!r || r.dataset.loading === "true" || r.dataset.loaded === "true") return;
+		r.dataset.loading = "true";
+		let i = this._gatherCurrentConfig(), a = {};
+		for (let [t, n] of Object.entries(i)) t !== e && t !== "actionName" && (n === "" || n == null || typeof n == "string" && n.startsWith("Loading") || (a[t] = n));
+		try {
+			let t = this.bodyEl.querySelector(".wf-auth-type"), o = {
+				type: t ? t.value : "direct",
+				connectionId: this._workflow?.connectionId || "default_connection",
+				rawApiKey: this.bodyEl.querySelector(".wf-auth-raw-key")?.value || "",
+				pieceName: this._node._apPiece.name
+			}, s = i.actionName || this._node.config?.actionName, c = this._workflow?.host || "", l = await (await fetch(`${c}/api/properties`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					pieceName: this._node._apPiece.name,
+					actionName: s,
+					propertyName: e,
+					authConfig: o,
+					propsValue: a
+				})
+			})).json();
+			if (r.dataset.loading = "false", l.error) throw Error(l.error);
+			let u = l.properties || {};
+			if (Object.keys(u).length === 0) {
+				r.innerHTML = "<div style=\"font-size:11px;color:#94a3b8;\">No dynamic properties required for current settings.</div>", r.dataset.loaded = "true";
+				return;
+			}
+			let d = "";
+			for (let [t, r] of Object.entries(u)) {
+				let a = `wf-config-${this._node.id}-${e}-${t}`, o = n && typeof n == "object" ? n[t] : r.default || "";
+				d += this._fieldHTML(t, r, o, i, !0, a);
+			}
+			r.innerHTML = d, r.dataset.loaded = "true", r.querySelectorAll(".wf-config-list").forEach((e) => {
+				this._bindListEvents(e);
+			}), r.querySelectorAll("input, select, textarea").forEach((e) => {
+				e.addEventListener("input", () => this._emitChange()), e.addEventListener("change", () => this._emitChange());
+			});
+			for (let [t, r] of Object.entries(u)) if (r.type === "dynamic-select") {
+				let i = `wf-config-${this._node.id}-${e}-${t}`, a = n && typeof n == "object" ? n[t] : r.default || "";
+				await this._loadDynamicDropdown(t, r, i, a);
+			}
+		} catch (e) {
+			r.dataset.loading = "false", console.error("Failed to load dynamic properties:", e), r.innerHTML = `<div style="font-size:11px;color:#ef4444;">Failed to load properties: ${e.message}</div>`;
+		}
+	}
+}, u = class {
+	constructor(e, t = {}) {
+		this.container = e, this.options = t, this.workflow = null, this._buildShell(), this._bindKeyboard();
 	}
 	setWorkflow(e) {
 		this.workflow = e, this._bindWorkflowEvents();
 	}
 	_buildShell() {
-		this.container.innerHTML = "\n      <div class=\"wf-toolbar\">\n        <div class=\"wf-toolbar-group\">\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-in\"   title=\"Zoom In (=)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.35-4.35M11 8v6M8 11h6\"/></svg>\n          </button>\n          <div class=\"wf-zoom-display\" id=\"wf-zoom-display\">100%</div>\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-out\"  title=\"Zoom Out (-)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.35-4.35M8 11h6\"/></svg>\n          </button>\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"zoom-fit\"  title=\"Fit to view (F)\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3\"/></svg>\n          </button>\n        </div>\n        <div class=\"wf-toolbar-divider\"></div>\n        <div class=\"wf-toolbar-group\">\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"clear\"     title=\"Clear canvas\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg>\n          </button>\n          <button class=\"wf-btn wf-btn--primary\" data-action=\"export\" title=\"Export JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>\n            Export\n          </button>\n          <button class=\"wf-btn wf-btn--ghost\"   data-action=\"import\" title=\"Import JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>\n            Import\n          </button>\n          <button class=\"wf-btn wf-btn--success\" data-action=\"run-flow\" title=\"Run Flow\" style=\"background:#10b981; color:#fff; border:none; display:flex; align-items:center; gap:6px;\">\n            <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>\n            Run Flow\n          </button>\n        </div>\n        <div class=\"wf-toolbar-divider\"></div>\n        <div class=\"wf-toolbar-group wf-toolbar-group--info\">\n          <span class=\"wf-stat\" id=\"wf-stat-nodes\">0 nodes</span>\n          <span class=\"wf-stat\" id=\"wf-stat-edges\">0 edges</span>\n          <div class=\"wf-graph-status\" id=\"wf-graph-status\" title=\"Graph status\">\n            <svg viewBox=\"0 0 12 12\" fill=\"currentColor\"><circle cx=\"6\" cy=\"6\" r=\"5\"/></svg>\n            Valid\n          </div>\n        </div>\n      </div>\n      <input type=\"file\" id=\"wf-import-input\" accept=\".json\" style=\"display:none\">\n    ", this.container.querySelectorAll("[data-action]").forEach((e) => {
+		let e = this.options.readOnly === !0, t = !e && this.options.showRun !== !1, n = !e && this.options.showCost !== !1, r = !e && this.options.showExport !== !1, i = !e && this.options.showImport !== !1, a = !e && this.options.showClear !== !1, o = this.options.buttons || [], s = o.map((e) => `
+      <button class="wf-btn ${e.class || "wf-btn--ghost"}" data-custom-action="${e.name}" title="${e.title || e.label}" style="display:flex; align-items:center; gap:6px;">
+        ${e.icon || ""}
+        <span>${e.label}</span>
+      </button>
+    `).join("");
+		this.container.innerHTML = `
+      <div class="wf-toolbar">
+        <div class="wf-toolbar-group">
+          <button class="wf-btn wf-btn--icon" data-action="zoom-in"   title="Zoom In (=)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6"/></svg>
+          </button>
+          <div class="wf-zoom-display" id="wf-zoom-display">100%</div>
+          <button class="wf-btn wf-btn--icon" data-action="zoom-out"  title="Zoom Out (-)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M8 11h6"/></svg>
+          </button>
+          <button class="wf-btn wf-btn--icon" data-action="zoom-fit"  title="Fit to view (F)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+        </div>
+        <div class="wf-toolbar-divider"></div>
+        <div class="wf-toolbar-group">
+          ${a ? "\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"clear\"     title=\"Clear canvas\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg>\n          </button>\n          " : ""}
+          ${r ? "\n          <button class=\"wf-btn wf-btn--primary\" data-action=\"export\" title=\"Export JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>\n            Export\n          </button>\n          " : ""}
+          ${i ? "\n          <button class=\"wf-btn wf-btn--ghost\"   data-action=\"import\" title=\"Import JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>\n            Import\n          </button>\n          " : ""}
+          ${t ? "\n          <button class=\"wf-btn wf-btn--success\" data-action=\"run-flow\" title=\"Run Flow\" style=\"background:#10b981; color:#fff; border:none; display:flex; align-items:center; gap:6px;\">\n            <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>\n            Run Flow\n          </button>\n          " : ""}
+          ${n ? "\n          <button class=\"wf-btn wf-btn--ghost\" data-action=\"cost-settings\" title=\"Usage & Cost Settings\" style=\"display:flex; align-items:center; gap:6px;\">\n            <svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"23\"/><path d=\"M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"/></svg>\n            Usage & Cost\n          </button>\n          " : ""}
+          ${s}
+        </div>
+        <div class="wf-toolbar-divider"></div>
+        <div class="wf-toolbar-group wf-toolbar-group--info">
+          <span class="wf-stat" id="wf-stat-nodes">0 nodes</span>
+          <span class="wf-stat" id="wf-stat-edges">0 edges</span>
+          <div class="wf-graph-status" id="wf-graph-status" title="Graph status">
+            <svg viewBox="0 0 12 12" fill="currentColor"><circle cx="6" cy="6" r="5"/></svg>
+            Valid
+          </div>
+        </div>
+      </div>
+      <input type="file" id="wf-import-input" accept=".json" style="display:none">
+    `, this.container.querySelectorAll("[data-action]").forEach((e) => {
 			e.addEventListener("click", () => this._handleAction(e.dataset.action));
+		}), this.container.querySelectorAll("[data-custom-action]").forEach((e) => {
+			e.addEventListener("click", () => {
+				let t = e.dataset.customAction, n = o.find((e) => e.name === t);
+				n && typeof n.onClick == "function" && n.onClick(this.workflow);
+			});
 		}), this.importInput = this.container.querySelector("#wf-import-input"), this.importInput.addEventListener("change", (e) => this._handleImport(e));
 	}
 	_bindWorkflowEvents() {
@@ -1652,6 +2176,9 @@ var e = class {
 				break;
 			case "run-flow":
 				this._runFlow();
+				break;
+			case "cost-settings":
+				this._showCostSettings();
 				break;
 		}
 	}
@@ -1691,7 +2218,7 @@ var e = class {
 		let e = this.container.querySelector("[data-action=\"run-flow\"]");
 		e && (e.disabled = !0, e.innerHTML = "Running...");
 		try {
-			let e = this.workflow.state.serialize(), t = await (await fetch("/api/execute-flow", {
+			let e = this.workflow.state.serialize(), t = this.workflow?.host || "", n = await (await fetch(`${t}/api/execute-flow`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -1706,19 +2233,146 @@ var e = class {
 					}
 				})
 			})).json();
-			if (t.success) alert("✓ Workflow executed successfully!");
+			if (n.success) alert("✓ Workflow executed successfully!");
 			else {
-				let e = t.logs.find((e) => e.status === "failed");
+				let e = n.logs.find((e) => e.status === "failed");
 				alert(`✕ Flow execution failed at ${e?.nodeLabel || "node"}: ${e?.error || "Unknown error"}`);
 			}
-			console.log("Execution Logs:", t.logs);
+			console.log("Execution Logs:", n.logs);
 		} catch (e) {
 			console.error("Flow Execution Error:", e), alert("Failed to execute flow: " + e.message);
 		} finally {
 			e && (e.disabled = !1, e.innerHTML = "\n          <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>\n          Run Flow\n        ");
 		}
 	}
-}, u = class {
+	async _showCostSettings() {
+		let e = this.workflow?.costServerHost || "http://localhost:3001", t = document.createElement("div");
+		t.className = "wf-modal-overlay", t.innerHTML = "\n      <div class=\"wf-modal-container\">\n        <div class=\"wf-modal-header\">\n          <div class=\"wf-modal-title\">\n            <svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"23\"/><path d=\"M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"/></svg>\n            Usage & Cost Control Center\n          </div>\n          <button class=\"wf-modal-close\" id=\"wf-modal-close-btn\">\n            <svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>\n          </button>\n        </div>\n        \n        <div class=\"wf-modal-tabs\">\n          <button class=\"wf-modal-tab active\" data-tab=\"pricing\">Piece Costs</button>\n          <button class=\"wf-modal-tab\" data-tab=\"webhook\">Webhook Config</button>\n          <button class=\"wf-modal-tab\" data-tab=\"history\">Usage Logs</button>\n        </div>\n        \n        <div class=\"wf-modal-body\">\n          <!-- Pricing Tab -->\n          <div class=\"wf-tab-content active\" id=\"wf-tab-pricing\">\n            <div style=\"margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;\">\n              <span style=\"font-size: 13px; color: var(--wf-text-secondary);\">Flat costs (USD or credits) per piece type defined in pricing.js. Skipped/failed steps always cost 0.</span>\n            </div>\n            <table class=\"wf-pricing-table\">\n              <thead>\n                <tr>\n                  <th>Piece Type</th>\n                  <th>Cost Per Run (Success)</th>\n                </tr>\n              </thead>\n              <tbody id=\"wf-pricing-list-body\">\n                <tr><td colspan=\"2\" style=\"text-align: center; color: var(--wf-text-muted);\">Loading pricing data...</td></tr>\n              </tbody>\n            </table>\n          </div>\n          \n          <!-- Webhook Tab -->\n          <div class=\"wf-tab-content\" id=\"wf-tab-webhook\">\n            <span style=\"display: block; font-size: 13px; color: var(--wf-text-secondary); margin-bottom: 20px;\">\n              Specify a webhook endpoint. FlowGraph will send a single POST payload containing full workflow execution breakdown and total cost upon run completion.\n            </span>\n            <div class=\"wf-settings-group\">\n              <label class=\"wf-settings-label\">Webhook Destination URL</label>\n              <input type=\"text\" id=\"wf-webhook-url\" class=\"wf-settings-input\" placeholder=\"https://api.yourdomain.com/webhooks/usage\">\n            </div>\n            \n            <div class=\"wf-settings-group\">\n              <label class=\"wf-settings-label\">Secret Token (Optional signature verification)</label>\n              <input type=\"password\" id=\"wf-webhook-secret\" class=\"wf-settings-input\" placeholder=\"••••••••••••••••\">\n            </div>\n            \n            <div class=\"wf-settings-group\">\n              <label class=\"wf-switch-container\">\n                <span class=\"wf-switch\">\n                  <input type=\"checkbox\" id=\"wf-webhook-enabled\">\n                  <span class=\"wf-slider\"></span>\n                </span>\n                <span style=\"font-size: 13px; font-weight: 500;\">Enable Webhook Deliveries</span>\n              </label>\n            </div>\n            \n            <div style=\"margin-top: 30px; display: flex; gap: 10px;\">\n              <button class=\"wf-btn wf-btn--primary\" id=\"wf-save-webhook-btn\">Save Config</button>\n            </div>\n          </div>\n          \n          <!-- History Tab -->\n          <div class=\"wf-tab-content\" id=\"wf-tab-history\">\n            <div style=\"margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;\">\n              <span style=\"font-size: 13px; color: var(--wf-text-secondary);\">Showing recent flow execution usage logs (max 50, retained up to 30 days).</span>\n              <button class=\"wf-btn wf-btn--ghost\" id=\"wf-manual-purge-btn\" style=\"color: var(--wf-danger); border-color: rgba(239, 68, 68, 0.2);\">Purge Old Logs</button>\n            </div>\n            <table class=\"wf-history-table\">\n              <thead>\n                <tr>\n                  <th>Run ID</th>\n                  <th>Status</th>\n                  <th>Total Cost</th>\n                  <th>Nodes Run</th>\n                  <th>Duration</th>\n                  <th>Date/Time</th>\n                </tr>\n              </thead>\n              <tbody id=\"wf-history-list-body\">\n                <tr><td colspan=\"6\" style=\"text-align: center; color: var(--wf-text-muted);\">Loading usage logs...</td></tr>\n              </tbody>\n            </table>\n          </div>\n        </div>\n      </div>\n    ", document.body.appendChild(t);
+		let n = t.querySelector("#wf-modal-close-btn"), r = () => {
+			t.style.opacity = "0", t.querySelector(".wf-modal-container").style.transform = "translateY(20px)", t.querySelector(".wf-modal-container").style.transition = "transform 0.2s, opacity 0.2s", t.style.transition = "opacity 0.2s", setTimeout(() => t.remove(), 200);
+		};
+		n.addEventListener("click", r), t.addEventListener("click", (e) => {
+			e.target === t && r();
+		});
+		let i = t.querySelectorAll(".wf-modal-tab");
+		i.forEach((e) => {
+			e.addEventListener("click", () => {
+				i.forEach((e) => e.classList.remove("active")), e.classList.add("active"), t.querySelectorAll(".wf-tab-content").forEach((e) => e.classList.remove("active")), t.querySelector(`#wf-tab-${e.dataset.tab}`).classList.add("active"), e.dataset.tab === "pricing" && a(), e.dataset.tab === "webhook" && o(), e.dataset.tab === "history" && s();
+			});
+		});
+		let a = async () => {
+			let n = t.querySelector("#wf-pricing-list-body");
+			n.innerHTML = "<tr><td colspan=\"2\" style=\"text-align: center; color: var(--wf-text-secondary);\">Loading pricing data...</td></tr>";
+			try {
+				let t = await (await fetch(`${e}/api/usage/pricing`)).json();
+				n.innerHTML = "", t.forEach((e) => {
+					let t = document.createElement("tr");
+					t.className = "wf-pricing-row", t.innerHTML = `
+            <td style="font-weight: 500; font-family: var(--wf-font-mono);">${e.node_type}</td>
+            <td style="font-family: var(--wf-font-mono); font-weight: 600; color: var(--wf-success);">$${e.cost.toFixed(4)}</td>
+          `, n.appendChild(t);
+				});
+			} catch (e) {
+				n.innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--wf-danger);">Error fetching pricing: ${e.message}</td></tr>`;
+			}
+		}, o = async () => {
+			try {
+				let n = await (await fetch(`${e}/api/usage/webhook`)).json();
+				t.querySelector("#wf-webhook-url").value = n.url || "", t.querySelector("#wf-webhook-secret").value = n.secret || "", t.querySelector("#wf-webhook-enabled").checked = !!n.enabled;
+			} catch (e) {
+				console.error("Error fetching webhook config:", e);
+			}
+		};
+		t.querySelector("#wf-save-webhook-btn").addEventListener("click", async (n) => {
+			let r = n.currentTarget, i = t.querySelector("#wf-webhook-url").value.trim(), a = t.querySelector("#wf-webhook-secret").value.trim(), o = t.querySelector("#wf-webhook-enabled").checked;
+			r.disabled = !0, r.textContent = "Saving...";
+			try {
+				(await fetch(`${e}/api/usage/webhook`, {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						url: i,
+						secret: a,
+						enabled: o
+					})
+				})).ok ? (r.textContent = "Saved Successfully!", r.style.background = "var(--wf-success)", r.style.borderColor = "var(--wf-success)", setTimeout(() => {
+					r.disabled = !1, r.textContent = "Save Config", r.style.background = "", r.style.borderColor = "";
+				}, 2e3)) : (alert("Failed to save webhook configuration"), r.disabled = !1, r.textContent = "Save Config");
+			} catch (e) {
+				alert("Error saving webhook: " + e.message), r.disabled = !1, r.textContent = "Save Config";
+			}
+		});
+		let s = async () => {
+			let n = t.querySelector("#wf-history-list-body");
+			n.innerHTML = "<tr><td colspan=\"6\" style=\"text-align: center; color: var(--wf-text-secondary);\">Loading logs...</td></tr>";
+			try {
+				let t = await (await fetch(`${e}/api/usage/list?limit=50`)).json();
+				if (n.innerHTML = "", t.length === 0) {
+					n.innerHTML = "<tr><td colspan=\"6\" style=\"text-align: center; color: var(--wf-text-muted);\">No execution logs found.</td></tr>";
+					return;
+				}
+				t.forEach((e) => {
+					let t = document.createElement("tr");
+					t.className = "wf-history-row";
+					let r = new Date(e.created_at).toLocaleString();
+					t.innerHTML = `
+            <td style="font-weight: 500; font-family: var(--wf-font-mono); color: var(--wf-accent);">${e.run_id}</td>
+            <td><span class="wf-badge wf-badge--${e.run_status === "success" ? "success" : "failed"}">${e.run_status}</span></td>
+            <td style="font-family: var(--wf-font-mono); font-weight: 600;">$${e.total_cost.toFixed(4)}</td>
+            <td>${e.node_count} nodes</td>
+            <td>${(e.duration_ms / 1e3).toFixed(2)}s</td>
+            <td style="color: var(--wf-text-secondary); font-size: 12px;">${r}</td>
+          `, t.addEventListener("click", () => {
+						let n = t.nextSibling;
+						if (n && n.classList && n.classList.contains("wf-details-tr")) {
+							n.remove();
+							return;
+						}
+						let r = document.createElement("tr");
+						r.className = "wf-details-tr", r.style.background = "#141824";
+						let i = "";
+						e.node_breakdown && Array.isArray(e.node_breakdown) && e.node_breakdown.forEach((e) => {
+							let t = e.status === "success" ? "success" : e.status === "failed" ? "failed" : "secondary", n = e.status === "skipped" ? "background:rgba(255,255,255,0.06);color:var(--wf-text-secondary);" : "";
+							i += `
+                  <div style="display:flex; justify-content:space-between; align-items:center; padding: 6px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
+                    <div style="display:flex; align-items:center; gap: 10px;">
+                      <span style="font-family: var(--wf-font-mono); font-size:11px; color:var(--wf-text-secondary);">${e.nodeType}</span>
+                      <span style="font-weight:500; font-size:12px;">${e.nodeLabel || e.nodeId}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <span class="wf-badge wf-badge--${t}" style="${n}">${e.status}</span>
+                      <span style="font-family: var(--wf-font-mono); font-size:12px; font-weight:600; width: 60px; text-align:right; color: ${e.cost > 0 ? "var(--wf-success)" : "var(--wf-text-muted)"};">$${e.cost.toFixed(4)}</span>
+                    </div>
+                  </div>
+                `;
+						}), r.innerHTML = `
+              <td colspan="6" style="padding: 16px 24px;">
+                <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--wf-text-secondary); margin-bottom:10px; border-bottom:1px solid var(--wf-border); padding-bottom:6px;">Node Cost Breakdown</div>
+                <div style="display:flex; flex-direction:column;">
+                  ${i || "<span style=\"color:var(--wf-text-muted);\">No breakdown available.</span>"}
+                </div>
+              </td>
+            `, t.parentNode.insertBefore(r, t.nextSibling);
+					}), n.appendChild(t);
+				});
+			} catch (e) {
+				n.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--wf-danger);">Error fetching logs: ${e.message}</td></tr>`;
+			}
+		};
+		t.querySelector("#wf-manual-purge-btn").addEventListener("click", async (t) => {
+			if (!confirm("Are you sure you want to purge all usage logs older than the TTL limit? This cannot be undone.")) return;
+			let n = t.currentTarget;
+			n.disabled = !0, n.textContent = "Purging...";
+			try {
+				(await fetch(`${e}/api/usage/purge`, { method: "DELETE" })).ok ? (alert("Usage logs purged successfully!"), s()) : alert("Failed to purge logs");
+			} catch (e) {
+				alert("Error purging logs: " + e.message);
+			} finally {
+				n.disabled = !1, n.textContent = "Purge Old Logs";
+			}
+		}), a();
+	}
+}, d = class {
 	constructor(e, t, n) {
 		this.canvas = t, this.state = n, this._rafId = null, this.el = document.createElement("div"), this.el.className = "wf-minimap", e.appendChild(this.el), this.cvs = document.createElement("canvas"), this.cvs.width = 180, this.cvs.height = 120, this.el.appendChild(this.cvs), this.ctx = this.cvs.getContext("2d"), this.state.on("change", () => this._scheduleRender()), this.canvas.on("transformChange", () => this._scheduleRender()), this._dragging = !1, this._bindEvents(), this._render();
 	}
@@ -1769,8 +2423,8 @@ var e = class {
 		let t = this.cvs.getBoundingClientRect(), n = e.touches ? e.touches[0].clientX : e.clientX, r = e.touches ? e.touches[0].clientY : e.clientY, i = Math.max(0, Math.min(1, (n - t.left) / t.width)), a = Math.max(0, Math.min(1, (r - t.top) / t.height)), { minX: o, minY: s, worldW: c, worldH: l } = this._worldBounds, u = o + i * c, d = s + a * l;
 		this.canvas.centerOn(u, d);
 	}
-}, d = 0, f = (e) => `${e}_${++d}_${Date.now().toString(36)}`;
-function p(e) {
+}, f = 0, p = (e) => `${e}_${++f}_${Date.now().toString(36)}`;
+function m(e) {
 	let t = [], n = (e, r = "") => {
 		for (let [i, a] of Object.entries(e)) {
 			let e = r ? `${r}.${i}` : i;
@@ -1785,13 +2439,13 @@ function p(e) {
 	else e && typeof e == "object" && n(e);
 	return t;
 }
-function m(o = {}) {
-	let { container: d, nodes: m = [], canvasOptions: h = {}, minimap: g = !0, readOnly: _ = !1, onEdit: v = null, availableVariables: y = [], connectionId: b = "default_connection" } = o;
-	if (!d) throw Error("[Workflow] container is required");
-	let x = [...a, ...m], S = new Map(x.map((e) => [e.type, e]));
-	d.innerHTML = `
+function h(o = {}) {
+	let { container: c, nodes: f = [], canvasOptions: h = {}, minimap: g = !0, readOnly: _ = !1, onEdit: v = null, availableVariables: y = [], connectionId: b = "default_connection", host: x = "", loadActivepiecesPieces: S = !0, costServerHost: C = x || "http://localhost:3000" } = o, w = S;
+	if (!c) throw Error("[Workflow] container is required");
+	let T = [...a, ...f], E = new Map(T.map((e) => [e.type, e])), D = o.toolbar !== !1;
+	c.innerHTML = `
     <div class="wf-layout ${_ ? "wf-layout--readonly" : ""}">
-      ${_ ? "" : "<div class=\"wf-toolbar-wrap\" id=\"wf-toolbar-wrap\"></div>"}
+      ${D ? "<div class=\"wf-toolbar-wrap\" id=\"wf-toolbar-wrap\"></div>" : ""}
       <div class="wf-main">
         ${_ ? "" : "<div class=\"wf-sidebar-wrap\"  id=\"wf-sidebar-wrap\"></div>"}
         <div class="wf-canvas-wrap"   id="wf-canvas-wrap"></div>
@@ -1800,28 +2454,31 @@ function m(o = {}) {
       ${_ && v ? "\n        <button class=\"wf-edit-btn\" id=\"wf-edit-btn\">\n          <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\"/><path d=\"M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z\"/></svg>\n          Edit Workflow\n        </button>\n      " : ""}
     </div>
   `;
-	let C = d.querySelector("#wf-toolbar-wrap"), w = d.querySelector("#wf-sidebar-wrap"), T = d.querySelector("#wf-canvas-wrap"), E = d.querySelector("#wf-config-wrap"), D = d.querySelector("#wf-edit-btn");
-	D && v && D.addEventListener("click", () => v());
-	let O = new e(), k = new t(T, h), A = new r(O), j = new n(k, O, A, _), M = new i(k, O, j, _), N, P, F;
-	_ || (N = new s(w, x, I), P = new c(E), F = new l(C)), g && new u(T, k, O), T.addEventListener("dragover", (e) => {
+	let O = c.querySelector("#wf-toolbar-wrap"), k = c.querySelector("#wf-sidebar-wrap"), A = c.querySelector("#wf-canvas-wrap"), j = c.querySelector("#wf-config-wrap"), M = c.querySelector("#wf-edit-btn");
+	M && v && M.addEventListener("click", () => v());
+	let N = new e(), P = new t(A, h), F = new r(N), I = new n(P, N, F, _), L = new i(P, N, I, _), R, z, B;
+	_ || (R = new s(k, T, V), z = new l(j)), D && (B = new u(O, {
+		...o.toolbar,
+		readOnly: _
+	})), g && new d(A, P, N), A.addEventListener("dragover", (e) => {
 		e.dataTransfer.types.includes("wf-node-type") && (e.preventDefault(), e.dataTransfer.dropEffect = "copy");
-	}), T.addEventListener("drop", (e) => {
+	}), A.addEventListener("drop", (e) => {
 		let t = e.dataTransfer.getData("wf-node-type");
 		if (!t) return;
 		e.preventDefault();
-		let n = k.screenToCanvas(e.clientX, e.clientY);
-		I(t, k.snapPoint(n.x - 90, n.y - 40));
+		let n = P.screenToCanvas(e.clientX, e.clientY);
+		V(t, P.snapPoint(n.x - 90, n.y - 40));
 	});
-	function I(e, t, n = !1) {
-		let r = S.get(e);
+	function V(e, t, n = !1) {
+		let r = E.get(e);
 		if (!r) {
 			console.warn("[Workflow] Unknown node type:", e);
 			return;
 		}
 		let i = t;
 		if (n) {
-			let e = T.getBoundingClientRect(), t = k.screenToCanvas(e.left + e.width / 2, e.top + e.height / 2);
-			i = k.snapPoint(t.x - 90, t.y - 40);
+			let e = A.getBoundingClientRect(), t = P.screenToCanvas(e.left + e.width / 2, e.top + e.height / 2);
+			i = P.snapPoint(t.x - 90, t.y - 40);
 		}
 		let a = {};
 		for (let [e, t] of Object.entries(r.configSchema || {})) t.type === "condition_builder" ? a[e] = {
@@ -1830,85 +2487,89 @@ function m(o = {}) {
 		} : t.type === "router_conditions" ? a[e] = {} : a[e] = t.default ?? "";
 		let o = r._apPiece, s = {
 			...structuredClone(r),
-			id: f(e),
+			id: p(e),
 			config: a
 		};
 		return o && (s._apPiece = o), e === "router" && Array.isArray(a.routes) && (s.outputs = a.routes.map((e) => ({
 			name: e.toLowerCase().replace(/\s+/g, "_"),
 			label: e,
 			type: "any"
-		}))), O.addNode(s, i), M.renderNode(s, i), L("onNodeAdd", {
+		}))), N.addNode(s, i), L.renderNode(s, i), H("onNodeAdd", {
 			node: s,
 			position: i
 		}), s;
 	}
-	O.on("nodeMove", ({ id: e, position: t }) => {
-		L("onNodeMove", {
+	N.on("nodeMove", ({ id: e, position: t }) => {
+		H("onNodeMove", {
 			id: e,
 			position: t
 		});
-	}), O.on("connect", (e) => {
-		L("onConnect", e);
-	}), O.on("nodeDelete", ({ id: e }) => {
-		L("onDelete", {
+	}), N.on("connect", (e) => {
+		H("onConnect", e);
+	}), N.on("nodeDelete", ({ id: e }) => {
+		H("onDelete", {
 			id: e,
 			type: "node"
 		});
-	}), O.on("disconnect", (e) => {
-		L("onDelete", {
+	}), N.on("disconnect", (e) => {
+		H("onDelete", {
 			id: e.id,
 			type: "edge"
 		});
-	}), O.on("change", (e) => {
-		L("onChange", e);
-	}), M && M.on("nodeSelect", ({ id: e, node: t }) => {
-		if (P) {
-			let n = O.nodes.get(e) || t;
-			P.show(n, (e, t) => {
-				let n = O.nodes.get(e);
+	}), N.on("change", (e) => {
+		H("onChange", e);
+	}), L && L.on("nodeSelect", ({ id: e, node: t }) => {
+		if (z) {
+			let n = N.nodes.get(e) || t;
+			z.show(n, (e, t) => {
+				let n = N.nodes.get(e);
 				if (n) {
 					if (n.type === "router" && Array.isArray(t.routes)) {
-						n.outputs = t.routes.map((e) => ({
-							name: e.toLowerCase().replace(/\s+/g, "_"),
-							label: e,
-							type: "any"
-						})), O.updateNodeConfig(e, t), M.updateNodeEl(e), j.renderAllEdges(), P.show(O.nodes.get(e), P._onChange);
-						return;
+						let r = n.config?.routes || [], i = t.routes || [];
+						if (r.length !== i.length || r.some((e, t) => e !== i[t])) {
+							n.outputs = t.routes.map((e) => ({
+								name: e.toLowerCase().replace(/\s+/g, "_"),
+								label: e,
+								type: "any"
+							})), N.updateNodeConfig(e, t), L.updateNodeEl(e), I.renderAllEdges(), z.show(N.nodes.get(e), z._onChange);
+							return;
+						}
 					}
 					if (n.type.startsWith("ap_") && t.actionName !== n.config.actionName) {
-						n.config = { actionName: t.actionName }, O.updateNodeConfig(e, n.config), P.show(n, P._onChange);
+						n.config = { actionName: t.actionName }, N.updateNodeConfig(e, n.config), z.show(n, z._onChange);
 						return;
 					}
-					O.updateNodeConfig(e, t);
+					N.updateNodeConfig(e, t);
 				}
 			});
 		}
-	}), k.nodeLayer.addEventListener("click", (e) => {
-		e.target === k.nodeLayer && P && P.clear();
-	}), O.on("load", () => {
-		for (let [e, t] of O.nodes) {
-			let e = S.get(t.type);
+	}), P.nodeLayer.addEventListener("click", (e) => {
+		e.target === P.nodeLayer && z && z.clear();
+	}), N.on("load", () => {
+		for (let [e, t] of N.nodes) {
+			let e = E.get(t.type);
 			e && e._apPiece && (t._apPiece = e._apPiece);
 		}
-		k.nodeLayer.innerHTML = "";
-		for (let [e, t] of O.nodes) {
-			let n = O.positions.get(e);
-			n && M.renderNode(t, n);
+		P.nodeLayer.innerHTML = "";
+		for (let [e, t] of N.nodes) {
+			let n = N.positions.get(e);
+			n && L.renderNode(t, n);
 		}
-		j.renderAllEdges();
+		I.renderAllEdges();
 	});
-	function L(e, t) {
+	function H(e, t) {
 		typeof o[e] == "function" && o[e](t);
 	}
-	let R = {
-		state: O,
-		canvas: k,
+	let U = {
+		state: N,
+		canvas: P,
 		connectionId: b,
+		host: x,
 		addNode(e, t) {
-			return I(e, t)?.id;
+			return V(e, t)?.id;
 		},
 		addEdge(e, t, n, r) {
-			let i = A.canConnect(e, t, n, r);
+			let i = F.canConnect(e, t, n, r);
 			if (!i.ok) return console.warn("[Workflow] addEdge failed:", i.reason), null;
 			let a = `edge_${Date.now()}_${Math.random().toString(36).slice(2)}`, o = {
 				id: a,
@@ -1917,61 +2578,61 @@ function m(o = {}) {
 				toNode: n,
 				toPort: r
 			};
-			return O.addEdge(o), j._renderEdge(o), a;
+			return N.addEdge(o), I._renderEdge(o), a;
 		},
 		removeNode(e) {
-			M.deleteNode(e);
+			L.deleteNode(e);
 		},
 		deleteSelected() {
-			let e = M.getSelectedNodes();
-			for (let t of e) M.deleteNode(t);
+			let e = L.getSelectedNodes();
+			for (let t of e) L.deleteNode(t);
 		},
 		clear() {
-			let e = Array.from(O.nodes.keys());
+			let e = Array.from(N.nodes.keys());
 			for (let t of e) {
-				let e = k.nodeLayer.querySelector(`[data-node-id="${t}"]`);
+				let e = P.nodeLayer.querySelector(`[data-node-id="${t}"]`);
 				e && e.remove();
 			}
-			for (let e of [...O.edges]) {
-				let t = j._edgePaths.get(e.id);
+			for (let e of [...N.edges]) {
+				let t = I._edgePaths.get(e.id);
 				t && t.group.remove();
 			}
-			j._edgePaths.clear(), O.nodes.clear(), O.edges = [], O.positions.clear(), O._emit("change", O.serialize()), P && P.clear();
+			I._edgePaths.clear(), N.nodes.clear(), N.edges = [], N.positions.clear(), N._emit("change", N.serialize()), z && z.clear();
 		},
 		getAdjacencyList() {
-			return O.getAdjacencyList();
+			return N.getAdjacencyList();
 		},
 		getInDegree() {
-			return O.getInDegree();
+			return N.getInDegree();
 		},
 		hasCycle() {
-			return O.hasCycle();
+			return N.hasCycle();
 		},
 		exportJSON() {
-			return O.exportJSON();
+			return N.exportJSON();
 		},
 		loadJSON(e) {
-			O.loadJSON(e);
+			N.loadJSON(e);
 		},
 		fitToView() {
-			let e = Array.from(O.positions.values());
+			let e = Array.from(N.positions.values());
 			if (!e.length) return;
-			let t = e.map((e) => e.x), n = e.map((e) => e.y), r = Math.min(...t), i = Math.max(...t) + 200, a = Math.min(...n), o = Math.max(...n) + 120, s = i - r || 400, c = o - a || 300, l = k.container.clientWidth - 60, u = k.container.clientHeight - 60, d = Math.min(3, Math.max(.2, Math.min(l / s, u / c)));
-			k.transform.scale = d, k.transform.x = (l - s * d) / 2 + 30 - r * d, k.transform.y = (u - c * d) / 2 + 30 - a * d, k._applyTransform();
+			let t = e.map((e) => e.x), n = e.map((e) => e.y), r = Math.min(...t), i = Math.max(...t) + 200, a = Math.min(...n), o = Math.max(...n) + 120, s = i - r || 400, c = o - a || 300, l = P.container.clientWidth - 60, u = P.container.clientHeight - 60, d = Math.min(3, Math.max(.2, Math.min(l / s, u / c)));
+			P.transform.scale = d, P.transform.x = (l - s * d) / 2 + 30 - r * d, P.transform.y = (u - c * d) / 2 + 30 - a * d, P._applyTransform();
 		},
 		on(e, t) {
-			return O.on(e, t);
+			return N.on(e, t);
 		},
 		registerNodeType(e) {
-			x.push(e), S.set(e.type, e), N && N._renderList();
+			T.push(e), E.set(e.type, e), R && R._renderList();
 		},
-		availableVariables: p(y),
+		availableVariables: m(y),
 		setAvailableVariables(e) {
-			if (this.availableVariables = p(e), P && O.nodes.size > 0) {
-				let e = P._nodeId;
+			if (this.availableVariables = m(e), z && N.nodes.size > 0) {
+				let e = z._nodeId;
 				if (e) {
-					let t = O.nodes.get(e);
-					t && P.show(t, P._onChange);
+					let t = N.nodes.get(e);
+					t && z.show(t, z._onChange);
 				}
 			}
 		},
@@ -2004,10 +2665,20 @@ function m(o = {}) {
 				_apPiece: e
 			};
 			this.registerNodeType(t);
-		}
+		},
+		costServerHost: C
 	};
-	return F && F.setWorkflow(R), P && P.setWorkflow(R), R;
+	return B && B.setWorkflow(U), z && z.setWorkflow(U), w && (async () => {
+		try {
+			let e = await (await fetch(`${x}/api/pieces`)).json();
+			e && Array.isArray(e) && e.forEach((e) => {
+				U.registerPiece(e);
+			});
+		} catch (e) {
+			console.warn("[Workflow] Backend server not running or piece fetch failed:", e);
+		}
+	})(), U;
 }
-typeof window < "u" && (window.createWorkflow = m);
+typeof window < "u" && (window.createWorkflow = h);
 //#endregion
-export { m as createWorkflow };
+export { h as createWorkflow };

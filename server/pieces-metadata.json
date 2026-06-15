@@ -1,0 +1,2472 @@
+[
+  {
+    "name": "google_sheets",
+    "displayName": "Google Sheets",
+    "description": "",
+    "logoUrl": "https://cdn.activepieces.com/pieces/google-sheets.png",
+    "auth": {
+      "type": "OAUTH2",
+      "description": "",
+      "displayName": "Connection",
+      "scope": [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.readonly"
+      ],
+      "authUrl": "https://accounts.google.com/o/oauth2/auth"
+    },
+    "actions": {
+      "insert_row": {
+        "displayName": "Insert Row",
+        "description": "Append a row of values to an existing sheet",
+        "properties": {
+          "spreadsheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "include_team_drives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Team Drive Sheets",
+            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "required": false,
+            "defaultValue": false
+          },
+          "sheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Sheet",
+            "description": "",
+            "required": true
+          },
+          "as_string": {
+            "type": "CHECKBOX",
+            "displayName": "As String",
+            "description": "Inserted values that are dates and formulas will be entered strings and have no effect",
+            "required": false
+          },
+          "first_row_headers": {
+            "type": "CHECKBOX",
+            "displayName": "Are the First row Headers?",
+            "description": "If the first row is headers",
+            "required": true,
+            "defaultValue": false
+          },
+          "values": {
+            "type": "DYNAMIC",
+            "displayName": "Values",
+            "description": "The values to insert",
+            "required": true
+          }
+        }
+      },
+      "delete_row": {
+        "displayName": "Delete Row",
+        "description": "Delete a row on an existing sheet you have access to",
+        "properties": {
+          "spreadsheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "include_team_drives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Team Drive Sheets",
+            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "required": false,
+            "defaultValue": false
+          },
+          "sheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Sheet",
+            "description": "",
+            "required": true
+          },
+          "row_id": {
+            "type": "NUMBER",
+            "displayName": "Row Number",
+            "description": "The row number to remove",
+            "required": true
+          }
+        }
+      },
+      "update_row": {
+        "displayName": "Update Row",
+        "description": "Overwrite values in an existing row",
+        "properties": {
+          "spreadsheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "include_team_drives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Team Drive Sheets",
+            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "required": false,
+            "defaultValue": false
+          },
+          "sheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Sheet",
+            "description": "",
+            "required": true
+          },
+          "row_id": {
+            "type": "NUMBER",
+            "displayName": "Row Number",
+            "description": "The row number to update",
+            "required": true
+          },
+          "first_row_headers": {
+            "type": "CHECKBOX",
+            "displayName": "Are the First row Headers?",
+            "description": "If the first row is headers",
+            "required": true,
+            "defaultValue": false
+          },
+          "values": {
+            "type": "DYNAMIC",
+            "displayName": "Values",
+            "description": "The values to insert",
+            "required": true
+          }
+        }
+      },
+      "find_rows": {
+        "displayName": "Find Rows",
+        "description": "Find or get rows in a Google Sheet by column name and search value",
+        "properties": {
+          "spreadsheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "include_team_drives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Team Drive Sheets",
+            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "required": false,
+            "defaultValue": false
+          },
+          "sheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Sheet",
+            "description": "",
+            "required": true
+          },
+          "columnName": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "The name of the column to search in",
+            "description": "Column Name",
+            "required": true
+          },
+          "searchValue": {
+            "type": "SHORT_TEXT",
+            "displayName": "Search Value",
+            "description": "The value to search for in the specified column. If left empty, all rows will be returned.",
+            "required": false
+          },
+          "matchCase": {
+            "type": "CHECKBOX",
+            "displayName": "Exact match",
+            "description": "Whether to choose the rows with exact match or choose the rows that contain the search value",
+            "required": true,
+            "defaultValue": false
+          },
+          "startingRow": {
+            "type": "NUMBER",
+            "displayName": "Starting Row",
+            "description": "The row number to start searching from",
+            "required": false
+          },
+          "numberOfRows": {
+            "type": "NUMBER",
+            "displayName": "Number of Rows",
+            "description": "The number of rows to search ( the default is 1 if not specified )",
+            "required": false,
+            "defaultValue": 1
+          }
+        }
+      },
+      "clear_sheet": {
+        "displayName": "Clear Sheet",
+        "description": "Clears all rows on an existing sheet",
+        "properties": {
+          "spreadsheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "include_team_drives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Team Drive Sheets",
+            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "required": false,
+            "defaultValue": false
+          },
+          "sheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Sheet",
+            "description": "",
+            "required": true
+          },
+          "is_first_row_headers": {
+            "type": "CHECKBOX",
+            "displayName": "Is First row Headers?",
+            "description": "If the first row is headers",
+            "required": true,
+            "defaultValue": true
+          }
+        }
+      },
+      "find_row_by_num": {
+        "displayName": "Get Row",
+        "description": "Get a row in a Google Sheet by row number",
+        "properties": {
+          "spreadsheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "include_team_drives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Team Drive Sheets",
+            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "required": false,
+            "defaultValue": false
+          },
+          "sheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Sheet",
+            "description": "",
+            "required": true
+          },
+          "rowNumber": {
+            "type": "NUMBER",
+            "displayName": "Row Number",
+            "description": "The row number to get from the sheet",
+            "required": true
+          }
+        }
+      },
+      "get_next_rows": {
+        "displayName": "Get next row(s)",
+        "description": "Get next group of rows from a Google Sheet",
+        "properties": {
+          "spreadsheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "include_team_drives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Team Drive Sheets",
+            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "required": false,
+            "defaultValue": false
+          },
+          "sheet_id": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Sheet",
+            "description": "",
+            "required": true
+          },
+          "memKey": {
+            "type": "SHORT_TEXT",
+            "displayName": "Memory Key",
+            "description": "The key used to store the current row number in memory",
+            "required": true,
+            "defaultValue": "row_number"
+          },
+          "groupSize": {
+            "type": "NUMBER",
+            "displayName": "Group Size",
+            "description": "The number of rows to get",
+            "required": true,
+            "defaultValue": 1
+          }
+        }
+      },
+      "custom_api_call": {
+        "displayName": "Custom API Call",
+        "description": "Send a custom API call to a specific endpoint",
+        "properties": {
+          "url": {
+            "type": "DYNAMIC",
+            "displayName": "url",
+            "description": "",
+            "required": true
+          },
+          "method": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Method",
+            "description": "",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "GET",
+                  "value": "GET"
+                },
+                {
+                  "label": "POST",
+                  "value": "POST"
+                },
+                {
+                  "label": "PATCH",
+                  "value": "PATCH"
+                },
+                {
+                  "label": "PUT",
+                  "value": "PUT"
+                },
+                {
+                  "label": "DELETE",
+                  "value": "DELETE"
+                },
+                {
+                  "label": "HEAD",
+                  "value": "HEAD"
+                }
+              ]
+            }
+          },
+          "headers": {
+            "type": "OBJECT",
+            "displayName": "Headers",
+            "description": "Authorization headers are injected automatically from your connection.",
+            "required": true
+          },
+          "queryParams": {
+            "type": "OBJECT",
+            "displayName": "Query Parameters",
+            "description": "",
+            "required": true
+          },
+          "body": {
+            "type": "JSON",
+            "displayName": "Body",
+            "description": "",
+            "required": false
+          },
+          "failsafe": {
+            "type": "CHECKBOX",
+            "displayName": "No Error on Failure",
+            "description": "",
+            "required": false
+          },
+          "timeout": {
+            "type": "NUMBER",
+            "displayName": "Timeout (in seconds)",
+            "description": "",
+            "required": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "openai",
+    "displayName": "OpenAI",
+    "description": "Use the many tools ChatGPT has to offer.",
+    "logoUrl": "https://cdn.activepieces.com/pieces/openai.png",
+    "auth": {
+      "type": "SECRET_TEXT",
+      "description": "Follow these instructions to get your OpenAI API Key:\n\n1. Visit the following website: https://platform.openai.com/account/api-keys.\n2. Once on the website, locate and click on the option to obtain your OpenAI API Key.\n\nIt is strongly recommended that you add your credit card information to your OpenAI account and upgrade to the paid plan **before** generating the API Key. This will help you prevent 429 errors.\n",
+      "displayName": "API Key",
+      "scope": [],
+      "authUrl": null
+    },
+    "actions": {
+      "ask_chatgpt": {
+        "displayName": "Ask ChatGPT",
+        "description": "Ask ChatGPT anything you want!",
+        "properties": {
+          "model": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "The model which will generate the completion. Some models are suitable for natural language tasks, others specialize in code.",
+            "required": true,
+            "defaultValue": "gpt-3.5-turbo"
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Question",
+            "description": "",
+            "required": true
+          },
+          "temperature": {
+            "type": "NUMBER",
+            "displayName": "Temperature",
+            "description": "Controls randomness: Lowering results in less random completions. As the temperature approaches zero, the model will become deterministic and repetitive.",
+            "required": false,
+            "defaultValue": 1
+          },
+          "maxTokens": {
+            "type": "NUMBER",
+            "displayName": "Maximum Tokens",
+            "description": "The maximum number of tokens to generate. Requests can use up to 2,048 or 4,096 tokens shared between prompt and completion depending on the model. Don't set the value to maximum and leave some tokens for the input. (One token is roughly 4 characters for normal English text)",
+            "required": true,
+            "defaultValue": 2048
+          },
+          "topP": {
+            "type": "NUMBER",
+            "displayName": "Top P",
+            "description": "An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability mass are considered.",
+            "required": false,
+            "defaultValue": 1
+          },
+          "frequencyPenalty": {
+            "type": "NUMBER",
+            "displayName": "Frequency penalty",
+            "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.",
+            "required": false,
+            "defaultValue": 0
+          },
+          "presencePenalty": {
+            "type": "NUMBER",
+            "displayName": "Presence penalty",
+            "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the mode's likelihood to talk about new topics.",
+            "required": false
+          },
+          "memoryKey": {
+            "type": "SHORT_TEXT",
+            "displayName": "Memory Key",
+            "description": "A memory key that will keep the chat history shared across runs and flows. Keep it empty to leave ChatGPT without memory of previous messages.",
+            "required": false
+          },
+          "roles": {
+            "type": "JSON",
+            "displayName": "Roles",
+            "description": "Array of roles to specify more accurate response",
+            "required": false,
+            "defaultValue": [
+              {
+                "role": "system",
+                "content": "You are a helpful assistant."
+              }
+            ]
+          }
+        }
+      },
+      "ask_assistant": {
+        "displayName": "Ask Assistant",
+        "description": "Ask a GPT assistant anything you want!",
+        "properties": {
+          "assistant": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Assistant",
+            "description": "The assistant which will generate the completion.",
+            "required": true
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Question",
+            "description": "",
+            "required": true
+          },
+          "memoryKey": {
+            "type": "SHORT_TEXT",
+            "displayName": "Memory Key",
+            "description": "A memory key that will keep the chat history shared across runs and flows. Keep it empty to leave your assistant without memory of previous messages.",
+            "required": false
+          }
+        }
+      },
+      "generate_image": {
+        "displayName": "Generate Image",
+        "description": "Generate an image using text-to-image models",
+        "properties": {
+          "model": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "The model which will generate the image.",
+            "required": true,
+            "defaultValue": "dall-e-3"
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Prompt",
+            "description": "",
+            "required": true
+          },
+          "resolution": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Resolution",
+            "description": "The resolution to generate the image in.",
+            "required": false,
+            "defaultValue": "1024x1024"
+          },
+          "quality": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Quality",
+            "description": "Standard is faster, HD has better details.",
+            "required": false,
+            "defaultValue": "standard"
+          }
+        }
+      },
+      "vision_prompt": {
+        "displayName": "Vision Prompt",
+        "description": "Ask GPT a question about an image",
+        "properties": {
+          "image": {
+            "type": "FILE",
+            "displayName": "Image",
+            "description": "The image URL or file you want GPT's vision to read.",
+            "required": true
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Question",
+            "description": "What do you want ChatGPT to tell you about the image?",
+            "required": true
+          },
+          "detail": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Detail",
+            "description": "Control how the model processes the image and generates textual understanding.",
+            "required": false,
+            "defaultValue": "auto"
+          },
+          "temperature": {
+            "type": "NUMBER",
+            "displayName": "Temperature",
+            "description": "Controls randomness: Lowering results in less random completions. As the temperature approaches zero, the model will become deterministic and repetitive.",
+            "required": false,
+            "defaultValue": 0.9
+          },
+          "maxTokens": {
+            "type": "NUMBER",
+            "displayName": "Maximum Tokens",
+            "description": "The maximum number of tokens to generate. Requests can use up to 2,048 or 4,096 tokens shared between prompt and completion, don't set the value to maximum and leave some tokens for the input. The exact limit varies by model. (One token is roughly 4 characters for normal English text)",
+            "required": false,
+            "defaultValue": 2048
+          },
+          "topP": {
+            "type": "NUMBER",
+            "displayName": "Top P",
+            "description": "An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability mass are considered.",
+            "required": false,
+            "defaultValue": 1
+          },
+          "frequencyPenalty": {
+            "type": "NUMBER",
+            "displayName": "Frequency penalty",
+            "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.",
+            "required": false,
+            "defaultValue": 0
+          },
+          "presencePenalty": {
+            "type": "NUMBER",
+            "displayName": "Presence penalty",
+            "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the mode's likelihood to talk about new topics.",
+            "required": false,
+            "defaultValue": 0.6
+          },
+          "roles": {
+            "type": "JSON",
+            "displayName": "Roles",
+            "description": "Array of roles to specify more accurate response",
+            "required": false,
+            "defaultValue": [
+              {
+                "role": "system",
+                "content": "You are a helpful assistant."
+              }
+            ]
+          }
+        }
+      },
+      "text_to_speech": {
+        "displayName": "Text-to-Speech",
+        "description": "Generate an audio recording from text",
+        "properties": {
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Text",
+            "description": "The text you want to hear.",
+            "required": true
+          },
+          "model": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "The model which will generate the audio.",
+            "required": true,
+            "defaultValue": "tts-1",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "tts-1",
+                  "value": "tts-1"
+                },
+                {
+                  "label": "tts-1-hd",
+                  "value": "tts-1-hd"
+                }
+              ]
+            }
+          },
+          "speed": {
+            "type": "NUMBER",
+            "displayName": "Speed",
+            "description": "The speed of the audio. Minimum is 0.25 and maximum is 4.00.",
+            "required": false,
+            "defaultValue": 1
+          },
+          "voice": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Voice",
+            "description": "The voice to generate the audio in.",
+            "required": true,
+            "defaultValue": "alloy",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "alloy",
+                  "value": "alloy"
+                },
+                {
+                  "label": "echo",
+                  "value": "echo"
+                },
+                {
+                  "label": "fable",
+                  "value": "fable"
+                },
+                {
+                  "label": "onyx",
+                  "value": "onyx"
+                },
+                {
+                  "label": "nova",
+                  "value": "nova"
+                },
+                {
+                  "label": "shimmer",
+                  "value": "shimmer"
+                }
+              ]
+            }
+          },
+          "format": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Output Format",
+            "description": "The format you want the audio file in.",
+            "required": true,
+            "defaultValue": "mp3",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "mp3",
+                  "value": "mp3"
+                },
+                {
+                  "label": "opus",
+                  "value": "opus"
+                },
+                {
+                  "label": "aac",
+                  "value": "aac"
+                },
+                {
+                  "label": "flac",
+                  "value": "flac"
+                }
+              ]
+            }
+          },
+          "fileName": {
+            "type": "SHORT_TEXT",
+            "displayName": "File Name",
+            "description": "The name of the output audio file (without extension).",
+            "required": false,
+            "defaultValue": "audio"
+          }
+        }
+      },
+      "transcribe": {
+        "displayName": "Transcribe Audio",
+        "description": "Transcribe audio to text using whisper-1 model",
+        "properties": {
+          "audio": {
+            "type": "FILE",
+            "displayName": "Audio",
+            "description": "Audio file to transcribe",
+            "required": true
+          },
+          "language": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Language of the Audio",
+            "description": "Language of the audio file the default is en (English).",
+            "required": false,
+            "defaultValue": "en",
+            "options": {
+              "options": [
+                {
+                  "value": "es",
+                  "label": "Spanish"
+                },
+                {
+                  "value": "it",
+                  "label": "Italian"
+                },
+                {
+                  "value": "en",
+                  "label": "English"
+                },
+                {
+                  "value": "pt",
+                  "label": "Portuguese"
+                },
+                {
+                  "value": "de",
+                  "label": "German"
+                },
+                {
+                  "value": "ja",
+                  "label": "Japanese"
+                },
+                {
+                  "value": "pl",
+                  "label": "Polish"
+                },
+                {
+                  "value": "ar",
+                  "label": "Arabic"
+                },
+                {
+                  "value": "af",
+                  "label": "Afrikaans"
+                },
+                {
+                  "value": "az",
+                  "label": "Azerbaijani"
+                },
+                {
+                  "value": "bg",
+                  "label": "Bulgarian"
+                },
+                {
+                  "value": "bs",
+                  "label": "Bosnian"
+                },
+                {
+                  "value": "ca",
+                  "label": "Catalan"
+                },
+                {
+                  "value": "cs",
+                  "label": "Czech"
+                },
+                {
+                  "value": "da",
+                  "label": "Danish"
+                },
+                {
+                  "value": "el",
+                  "label": "Greek"
+                },
+                {
+                  "value": "et",
+                  "label": "Estonian"
+                },
+                {
+                  "value": "fa",
+                  "label": "Persian"
+                },
+                {
+                  "value": "fi",
+                  "label": "Finnish"
+                },
+                {
+                  "value": "tl",
+                  "label": "Tagalog"
+                },
+                {
+                  "value": "fr",
+                  "label": "French"
+                },
+                {
+                  "value": "gl",
+                  "label": "Galician"
+                },
+                {
+                  "value": "he",
+                  "label": "Hebrew"
+                },
+                {
+                  "value": "hi",
+                  "label": "Hindi"
+                },
+                {
+                  "value": "hr",
+                  "label": "Croatian"
+                },
+                {
+                  "value": "hu",
+                  "label": "Hungarian"
+                },
+                {
+                  "value": "hy",
+                  "label": "Armenian"
+                },
+                {
+                  "value": "id",
+                  "label": "Indonesian"
+                },
+                {
+                  "value": "is",
+                  "label": "Icelandic"
+                },
+                {
+                  "value": "kk",
+                  "label": "Kazakh"
+                },
+                {
+                  "value": "kn",
+                  "label": "Kannada"
+                },
+                {
+                  "value": "ko",
+                  "label": "Korean"
+                },
+                {
+                  "value": "lt",
+                  "label": "Lithuanian"
+                },
+                {
+                  "value": "lv",
+                  "label": "Latvian"
+                },
+                {
+                  "value": "ma",
+                  "label": "Maori"
+                },
+                {
+                  "value": "mk",
+                  "label": "Macedonian"
+                },
+                {
+                  "value": "mr",
+                  "label": "Marathi"
+                },
+                {
+                  "value": "ms",
+                  "label": "Malay"
+                },
+                {
+                  "value": "ne",
+                  "label": "Nepali"
+                },
+                {
+                  "value": "nl",
+                  "label": "Dutch"
+                },
+                {
+                  "value": "no",
+                  "label": "Norwegian"
+                },
+                {
+                  "value": "ro",
+                  "label": "Romanian"
+                },
+                {
+                  "value": "ru",
+                  "label": "Russian"
+                },
+                {
+                  "value": "sk",
+                  "label": "Slovak"
+                },
+                {
+                  "value": "sl",
+                  "label": "Slovenian"
+                },
+                {
+                  "value": "sr",
+                  "label": "Serbian"
+                },
+                {
+                  "value": "sv",
+                  "label": "Swedish"
+                },
+                {
+                  "value": "sw",
+                  "label": "Swahili"
+                },
+                {
+                  "value": "ta",
+                  "label": "Tamil"
+                },
+                {
+                  "value": "th",
+                  "label": "Thai"
+                },
+                {
+                  "value": "tr",
+                  "label": "Turkish"
+                },
+                {
+                  "value": "uk",
+                  "label": "Ukrainian"
+                },
+                {
+                  "value": "ur",
+                  "label": "Urdu"
+                },
+                {
+                  "value": "vi",
+                  "label": "Vietnamese"
+                },
+                {
+                  "value": "zh",
+                  "label": "Chinese (Simplified)"
+                },
+                {
+                  "value": "cy",
+                  "label": "Welsh"
+                },
+                {
+                  "value": "be",
+                  "label": "Belarusian"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "translate": {
+        "displayName": "Translate Audio",
+        "description": "Translate audio to text using whisper-1 model",
+        "properties": {
+          "audio": {
+            "type": "FILE",
+            "displayName": "Audio",
+            "description": "Audio file to translate",
+            "required": true
+          }
+        }
+      },
+      "extract-structured-data": {
+        "displayName": "Extract Structured Data from Text",
+        "description": "Returns structured data from provided unstructured text.",
+        "properties": {
+          "model": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "",
+            "required": true,
+            "defaultValue": "gpt-3.5-turbo"
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Unstructured Text",
+            "description": "",
+            "required": true
+          },
+          "params": {
+            "type": "ARRAY",
+            "displayName": "Data Definition",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "custom_api_call": {
+        "displayName": "Custom API Call",
+        "description": "Make a custom API call to a specific endpoint",
+        "properties": {
+          "url": {
+            "type": "DYNAMIC",
+            "displayName": "url",
+            "description": "",
+            "required": true
+          },
+          "method": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Method",
+            "description": "",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "GET",
+                  "value": "GET"
+                },
+                {
+                  "label": "POST",
+                  "value": "POST"
+                },
+                {
+                  "label": "PATCH",
+                  "value": "PATCH"
+                },
+                {
+                  "label": "PUT",
+                  "value": "PUT"
+                },
+                {
+                  "label": "DELETE",
+                  "value": "DELETE"
+                },
+                {
+                  "label": "HEAD",
+                  "value": "HEAD"
+                }
+              ]
+            }
+          },
+          "headers": {
+            "type": "OBJECT",
+            "displayName": "Headers",
+            "description": "Authorization headers are injected automatically from your connection.",
+            "required": true
+          },
+          "queryParams": {
+            "type": "OBJECT",
+            "displayName": "Query Parameters",
+            "description": "",
+            "required": true
+          },
+          "body": {
+            "type": "JSON",
+            "displayName": "Body",
+            "description": "",
+            "required": false
+          },
+          "failsafe": {
+            "type": "CHECKBOX",
+            "displayName": "No Error on Failure",
+            "description": "",
+            "required": false
+          },
+          "timeout": {
+            "type": "NUMBER",
+            "displayName": "Timeout (in seconds)",
+            "description": "",
+            "required": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "slack",
+    "displayName": "Slack",
+    "description": "Channel-based messaging platform",
+    "logoUrl": "https://cdn.activepieces.com/pieces/slack.png",
+    "auth": {
+      "type": "OAUTH2",
+      "description": "Authenticate via a Slack OAuth flow.",
+      "displayName": "Connection",
+      "scope": [
+        "channels:read",
+        "channels:manage",
+        "channels:history",
+        "chat:write",
+        "groups:read",
+        "groups:write",
+        "groups:history",
+        "reactions:read",
+        "mpim:read",
+        "mpim:write",
+        "mpim:history",
+        "im:write",
+        "im:read",
+        "im:history",
+        "users:read",
+        "files:write",
+        "files:read",
+        "users:read.email",
+        "reactions:write",
+        "usergroups:read",
+        "usergroups:write",
+        "chat:write.customize",
+        "links:read",
+        "links:write",
+        "emoji:read",
+        "users.profile:read",
+        "channels:write.invites",
+        "groups:write.invites",
+        "channels:join",
+        "conversations.connect:write"
+      ],
+      "authUrl": "https://slack.com/oauth/v2/authorize?user_scope=search:read,users.profile:write,reactions:read,reactions:write,im:history,stars:read,channels:write,groups:write,im:write,mpim:write,channels:write.invites,groups:write.invites,channels:history,groups:history,chat:write,users:read,usergroups:write"
+    },
+    "actions": {
+      "slack-add-reaction-to-message": {
+        "displayName": "Add Reaction to Message",
+        "description": "Add an emoji reaction to a message.",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "ts": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Timestamp",
+            "description": "Please provide the timestamp of the message you wish to react, such as `1710304378.475129`. Alternatively, you can easily obtain the message link by clicking on the three dots next to the message and selecting the `Copy link` option.",
+            "required": true
+          },
+          "reaction": {
+            "type": "SHORT_TEXT",
+            "displayName": "Reaction (emoji) name",
+            "description": "e.g.`thumbsup`",
+            "required": true
+          },
+          "reactAsUser": {
+            "type": "CHECKBOX",
+            "displayName": "React as user?",
+            "description": "If enabled, the reaction will be added as the authenticated user instead of the bot.",
+            "required": true,
+            "defaultValue": false
+          }
+        }
+      },
+      "send_direct_message": {
+        "displayName": "Send Message To A User",
+        "description": "Send message to a user",
+        "properties": {
+          "userId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "User",
+            "description": "",
+            "required": true
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "",
+            "required": true
+          },
+          "username": {
+            "type": "SHORT_TEXT",
+            "displayName": "Username",
+            "description": "The username of the bot",
+            "required": false
+          },
+          "profilePicture": {
+            "type": "SHORT_TEXT",
+            "displayName": "Profile Picture",
+            "description": "The profile picture of the bot",
+            "required": false
+          },
+          "iconEmoji": {
+            "type": "SHORT_TEXT",
+            "displayName": "Icon Emoji",
+            "description": "The icon emoji of the bot",
+            "required": false
+          },
+          "mentionOriginFlow": {
+            "type": "CHECKBOX",
+            "displayName": "Mention flow of origin?",
+            "description": "If checked, adds a mention at the end of the Slack message to indicate which flow sent the notification, with a link to said flow.",
+            "required": false,
+            "defaultValue": false
+          },
+          "blocks": {
+            "type": "JSON",
+            "displayName": "Block Kit blocks",
+            "description": "See https://api.slack.com/block-kit for specs",
+            "required": false,
+            "defaultValue": []
+          },
+          "unfurlLinks": {
+            "type": "CHECKBOX",
+            "displayName": "Unfurl Links",
+            "description": "Enable link unfurling for this message",
+            "required": false,
+            "defaultValue": true
+          }
+        }
+      },
+      "send_channel_message": {
+        "displayName": "Send Message To A Channel",
+        "description": "Send message to a channel",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "The text of your message. When using Block Kit blocks, this is used as a fallback for notifications.",
+            "required": false
+          },
+          "sendAsBot": {
+            "type": "CHECKBOX",
+            "displayName": "Send as a bot?",
+            "description": "",
+            "required": true,
+            "defaultValue": true
+          },
+          "threadTs": {
+            "type": "SHORT_TEXT",
+            "displayName": "Reply to Thread (Thread Message Link/Timestamp)",
+            "description": "Provide the ts (timestamp) or link value of the **parent** message to make this message a reply. Do not use the ts value of the reply itself; use its parent instead. For example `1710304378.475129`.Alternatively, you can easily obtain the message link by clicking on the three dots next to the parent message and selecting the `Copy link` option.",
+            "required": false
+          },
+          "username": {
+            "type": "SHORT_TEXT",
+            "displayName": "Username",
+            "description": "The username of the bot",
+            "required": false
+          },
+          "profilePicture": {
+            "type": "SHORT_TEXT",
+            "displayName": "Profile Picture",
+            "description": "The profile picture of the bot",
+            "required": false
+          },
+          "iconEmoji": {
+            "type": "SHORT_TEXT",
+            "displayName": "Icon Emoji",
+            "description": "The icon emoji of the bot",
+            "required": false
+          },
+          "file": {
+            "type": "FILE",
+            "displayName": "Attachment",
+            "description": "",
+            "required": false
+          },
+          "replyBroadcast": {
+            "type": "CHECKBOX",
+            "displayName": "Broadcast reply to channel",
+            "description": "When replying to a thread, also make the message visible to everyone in the channel (only applicable when Thread Timestamp is provided)",
+            "required": false,
+            "defaultValue": false
+          },
+          "mentionOriginFlow": {
+            "type": "CHECKBOX",
+            "displayName": "Mention flow of origin?",
+            "description": "If checked, adds a mention at the end of the Slack message to indicate which flow sent the notification, with a link to said flow.",
+            "required": false,
+            "defaultValue": false
+          },
+          "unfurlLinks": {
+            "type": "CHECKBOX",
+            "displayName": "Unfurl Links",
+            "description": "Enable link unfurling for this message",
+            "required": false,
+            "defaultValue": true
+          },
+          "blocks": {
+            "type": "JSON",
+            "displayName": "Block Kit blocks",
+            "description": "See https://api.slack.com/block-kit for specs",
+            "required": false,
+            "defaultValue": []
+          }
+        }
+      },
+      "request_approval_direct_message": {
+        "displayName": "Request Approval from A User",
+        "description": "Send approval message to a user and then wait until the message is approved or disapproved",
+        "properties": {
+          "userId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "User",
+            "description": "",
+            "required": true
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "",
+            "required": true
+          },
+          "username": {
+            "type": "SHORT_TEXT",
+            "displayName": "Username",
+            "description": "The username of the bot",
+            "required": false
+          },
+          "profilePicture": {
+            "type": "SHORT_TEXT",
+            "displayName": "Profile Picture",
+            "description": "The profile picture of the bot",
+            "required": false
+          },
+          "mentionOriginFlow": {
+            "type": "CHECKBOX",
+            "displayName": "Mention flow of origin?",
+            "description": "If checked, adds a mention at the end of the Slack message to indicate which flow sent the notification, with a link to said flow.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "request_approval_message": {
+        "displayName": "Request Approval in a Channel",
+        "description": "Send approval message to a channel and then wait until the message is approved or disapproved",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "",
+            "required": true
+          },
+          "username": {
+            "type": "SHORT_TEXT",
+            "displayName": "Username",
+            "description": "The username of the bot",
+            "required": false
+          },
+          "profilePicture": {
+            "type": "SHORT_TEXT",
+            "displayName": "Profile Picture",
+            "description": "The profile picture of the bot",
+            "required": false
+          },
+          "mentionOriginFlow": {
+            "type": "CHECKBOX",
+            "displayName": "Mention flow of origin?",
+            "description": "If checked, adds a mention at the end of the Slack message to indicate which flow sent the notification, with a link to said flow.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "request_action_direct_message": {
+        "displayName": "Request Action from A User",
+        "description": "Send a message to a user and wait until the user selects an action",
+        "properties": {
+          "userId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "User",
+            "description": "",
+            "required": true
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "",
+            "required": true
+          },
+          "actions": {
+            "type": "ARRAY",
+            "displayName": "Action Buttons",
+            "description": "",
+            "required": true
+          },
+          "username": {
+            "type": "SHORT_TEXT",
+            "displayName": "Username",
+            "description": "The username of the bot",
+            "required": false
+          },
+          "profilePicture": {
+            "type": "SHORT_TEXT",
+            "displayName": "Profile Picture",
+            "description": "The profile picture of the bot",
+            "required": false
+          },
+          "mentionOriginFlow": {
+            "type": "CHECKBOX",
+            "displayName": "Mention flow of origin?",
+            "description": "If checked, adds a mention at the end of the Slack message to indicate which flow sent the notification, with a link to said flow.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "request_action_message": {
+        "displayName": "Request Action in A Channel",
+        "description": "Send a message in a channel and wait until an action is selected",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "",
+            "required": true
+          },
+          "actions": {
+            "type": "ARRAY",
+            "displayName": "Action Buttons",
+            "description": "",
+            "required": true
+          },
+          "threadTs": {
+            "type": "SHORT_TEXT",
+            "displayName": "Reply to Thread (Thread Message Link/Timestamp)",
+            "description": "Provide the ts (timestamp) or link value of the **parent** message to make this message a reply. Do not use the ts value of the reply itself; use its parent instead. For example `1710304378.475129`.Alternatively, you can easily obtain the message link by clicking on the three dots next to the parent message and selecting the `Copy link` option.",
+            "required": false
+          },
+          "username": {
+            "type": "SHORT_TEXT",
+            "displayName": "Username",
+            "description": "The username of the bot",
+            "required": false
+          },
+          "profilePicture": {
+            "type": "SHORT_TEXT",
+            "displayName": "Profile Picture",
+            "description": "The profile picture of the bot",
+            "required": false
+          },
+          "replyBroadcast": {
+            "type": "CHECKBOX",
+            "displayName": "Broadcast reply to channel",
+            "description": "When replying to a thread, also make the message visible to everyone in the channel (only applicable when Thread Timestamp is provided)",
+            "required": false,
+            "defaultValue": false
+          },
+          "mentionOriginFlow": {
+            "type": "CHECKBOX",
+            "displayName": "Mention flow of origin?",
+            "description": "If checked, adds a mention at the end of the Slack message to indicate which flow sent the notification, with a link to said flow.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "uploadFile": {
+        "displayName": "Upload file",
+        "description": "Upload file without sharing it to a channel or user",
+        "properties": {
+          "file": {
+            "type": "FILE",
+            "displayName": "Attachment",
+            "description": "",
+            "required": true
+          },
+          "title": {
+            "type": "SHORT_TEXT",
+            "displayName": "Title",
+            "description": "",
+            "required": false
+          },
+          "filename": {
+            "type": "SHORT_TEXT",
+            "displayName": "Filename",
+            "description": "",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": false
+          }
+        }
+      },
+      "get-file": {
+        "displayName": "Get File",
+        "description": "Return information about a given file ID.",
+        "properties": {
+          "fileId": {
+            "type": "SHORT_TEXT",
+            "displayName": "File ID",
+            "description": "You can pass the file ID from the New Message Trigger payload.",
+            "required": true
+          }
+        }
+      },
+      "searchMessages": {
+        "displayName": "Search messages",
+        "description": "Searches for messages matching a query",
+        "properties": {
+          "query": {
+            "type": "SHORT_TEXT",
+            "displayName": "Search query",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "slack-find-user-by-email": {
+        "displayName": "Find User by Email",
+        "description": "Finds a user by matching against their email address.",
+        "properties": {
+          "email": {
+            "type": "SHORT_TEXT",
+            "displayName": "Email",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "slack-find-user-by-handle": {
+        "displayName": "Find User by Handle",
+        "description": "Finds a user by matching against their Slack handle.",
+        "properties": {
+          "handle": {
+            "type": "SHORT_TEXT",
+            "displayName": "Handle",
+            "description": "User handle (display name), without the leading @",
+            "required": true
+          }
+        }
+      },
+      "find-user-by-id": {
+        "displayName": "Find User by ID",
+        "description": "Finds a user by their ID.",
+        "properties": {
+          "id": {
+            "type": "SHORT_TEXT",
+            "displayName": "ID",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "listUsers": {
+        "displayName": "List users",
+        "description": "List all users of the workspace",
+        "properties": {
+          "includeBots": {
+            "type": "CHECKBOX",
+            "displayName": "Include bots?",
+            "description": "",
+            "required": true,
+            "defaultValue": false
+          },
+          "includeDisabled": {
+            "type": "CHECKBOX",
+            "displayName": "Include disabled users?",
+            "description": "",
+            "required": true,
+            "defaultValue": false
+          }
+        }
+      },
+      "updateMessage": {
+        "displayName": "Update message",
+        "description": "Update an existing message",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "ts": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Timestamp",
+            "description": "Please provide the timestamp of the message you wish to update, such as `1710304378.475129`. Alternatively, you can easily obtain the message link by clicking on the three dots next to the message and selecting the `Copy link` option.",
+            "required": true
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "The updated text of your message",
+            "required": true
+          },
+          "mentionOriginFlow": {
+            "type": "CHECKBOX",
+            "displayName": "Mention flow of origin?",
+            "description": "If checked, adds a mention at the end of the Slack message to indicate which flow sent the notification, with a link to said flow.",
+            "required": false,
+            "defaultValue": false
+          },
+          "blocks": {
+            "type": "JSON",
+            "displayName": "Block Kit blocks",
+            "description": "See https://api.slack.com/block-kit for specs",
+            "required": false,
+            "defaultValue": []
+          }
+        }
+      },
+      "delete-message": {
+        "displayName": "Delete Message",
+        "description": "Deletes a specific message from a channel using the message's timestamp.",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "ts": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Timestamp",
+            "description": "Please provide the timestamp of the message you wish to retrieve, such as `1710304378.475129`. Alternatively, you can easily obtain the message link by clicking on the three dots next to the message and selecting the `Copy link` option.",
+            "required": true
+          }
+        }
+      },
+      "slack-create-channel": {
+        "displayName": "Create Channel",
+        "description": "Creates a new channel.",
+        "properties": {
+          "channelName": {
+            "type": "SHORT_TEXT",
+            "displayName": "Channel Name",
+            "description": "",
+            "required": true
+          },
+          "isPrivate": {
+            "type": "CHECKBOX",
+            "displayName": "Is Private?",
+            "description": "",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "slack-update-profile": {
+        "displayName": "Update Profile",
+        "description": "Update basic profile field such as name or title.",
+        "properties": {
+          "firstName": {
+            "type": "SHORT_TEXT",
+            "displayName": "First Name",
+            "description": "",
+            "required": false
+          },
+          "lastName": {
+            "type": "SHORT_TEXT",
+            "displayName": "Last Name",
+            "description": "",
+            "required": false
+          },
+          "email": {
+            "type": "SHORT_TEXT",
+            "displayName": "Email",
+            "description": "Changing a user's email address will send an email to both the old and new addresses, and also post a slackbot message to the user informing them of the change.",
+            "required": false
+          },
+          "userId": {
+            "type": "SHORT_TEXT",
+            "displayName": "User",
+            "description": "ID of user to change. This argument may only be specified by admins on paid teams.You can use **Find User by Email** action to retrieve ID.",
+            "required": false
+          }
+        }
+      },
+      "getChannelHistory": {
+        "displayName": "Get channel history",
+        "description": "Retrieve all messages from a specific channel (\"conversation\") between specified timestamps",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "oldest": {
+            "type": "NUMBER",
+            "displayName": "Oldest",
+            "description": "Only messages after this timestamp will be included in results",
+            "required": false
+          },
+          "latest": {
+            "type": "NUMBER",
+            "displayName": "Latest",
+            "description": "Only messages before this timestamp will be included in results. Default is the current time",
+            "required": false
+          },
+          "inclusive": {
+            "type": "CHECKBOX",
+            "displayName": "Inclusive",
+            "description": "Include messages with oldest or latest timestamps in results. Ignored unless either timestamp is specified",
+            "required": true,
+            "defaultValue": false
+          },
+          "includeAllMetadata": {
+            "type": "CHECKBOX",
+            "displayName": "Include all metadata",
+            "description": "Return all metadata associated with each message",
+            "required": true,
+            "defaultValue": false
+          }
+        }
+      },
+      "slack-set-user-status": {
+        "displayName": "Set User Status",
+        "description": "Sets a user's custom status",
+        "properties": {
+          "text": {
+            "type": "SHORT_TEXT",
+            "displayName": "Text",
+            "description": "",
+            "required": true
+          },
+          "emoji": {
+            "type": "SHORT_TEXT",
+            "displayName": "Emoji",
+            "description": "Emoji shortname (standard or custom), e.g. :tada: or :train:",
+            "required": false
+          },
+          "expiration": {
+            "type": "NUMBER",
+            "displayName": "Expires at",
+            "description": "Unix timestamp - if not set, the status will not expire",
+            "required": false
+          }
+        }
+      },
+      "markdownToSlackFormat": {
+        "displayName": "Markdown to Slack format",
+        "description": "Convert Markdown-formatted text to Slack's pseudo - markdown syntax",
+        "properties": {
+          "markdown": {
+            "type": "LONG_TEXT",
+            "displayName": "Markdown text",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "retrieveThreadMessages": {
+        "displayName": "Retrieve Thread Messages",
+        "description": "Retrieves thread messages by channel and thread timestamp.",
+        "properties": {
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "threadTs": {
+            "type": "SHORT_TEXT",
+            "displayName": "Thread ts",
+            "description": "Provide the ts (timestamp) value of the **parent** message to retrieve replies of this message. Do not use the ts value of the reply itself; use its parent instead. For example `1710304378.475129`.Alternatively, you can easily obtain the message link by clicking on the three dots next to the parent message and selecting the `Copy link` option.",
+            "required": true
+          }
+        }
+      },
+      "set-channel-topic": {
+        "displayName": "Set Channel Topic",
+        "description": "Sets the topic on a selected channel.",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "topic": {
+            "type": "LONG_TEXT",
+            "displayName": "Topic",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "get-message": {
+        "displayName": "Get Message by Timestamp",
+        "description": "Retrieves a specific message from a channel history using the message's timestamp.",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "ts": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Timestamp",
+            "description": "Please provide the timestamp of the message you wish to retrieve, such as `1710304378.475129`. Alternatively, you can easily obtain the message link by clicking on the three dots next to the message and selecting the `Copy link` option.",
+            "required": true
+          }
+        }
+      },
+      "invite-user-to-channel": {
+        "displayName": "Invite User to Channel",
+        "description": "Invites an existing User to an existing channel.",
+        "properties": {
+          "info": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\tPlease make sure add the bot to the channel by following these steps:\n\t  1. Type /invite in the channel's chat.\n\t  2. Click on Add apps to this channel.\n\t  3. Search for and add the bot.\n  \n**Note**: If you can't find the channel in the dropdown list (which fetches up to 2000 channels), please click on the **(F)** and type the channel ID directly.\n  ",
+            "required": false
+          },
+          "channel": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Channel",
+            "description": "You can get the Channel ID by right-clicking on the channel and selecting 'View Channel Details.'",
+            "required": true
+          },
+          "userId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "User",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "get_group_by_handle": {
+        "displayName": "Get User Group by Handle",
+        "description": "Finds a Slack user group by its handle (e.g., @user-group) and returns its details. To mention this group in a message, map the returned ID using the syntax <!subteam^ID>. Read more: https://api.slack.com/reference/surfaces/formatting#mentioning-groups",
+        "properties": {
+          "handle": {
+            "type": "SHORT_TEXT",
+            "displayName": "Group Handle",
+            "description": "Group handle without the leading @",
+            "required": true
+          }
+        }
+      },
+      "update_group_users": {
+        "displayName": "Update User Group Members",
+        "description": "Add users to or overwrite the member list of a Slack user group.",
+        "properties": {
+          "handle": {
+            "type": "SHORT_TEXT",
+            "displayName": "Group Handle",
+            "description": "Group handle without the leading @",
+            "required": true
+          },
+          "userIds": {
+            "type": "ARRAY",
+            "displayName": "User IDs",
+            "description": "The list of Slack User IDs to update this group with. Leave empty to clear the group (if not appending).",
+            "required": false
+          },
+          "appendUsers": {
+            "type": "CHECKBOX",
+            "displayName": "Append to existing members?",
+            "description": "If checked, these users will be added to the current group. If unchecked, the current group members will be completely replaced by these users.",
+            "required": true,
+            "defaultValue": true
+          }
+        }
+      },
+      "custom_api_call": {
+        "displayName": "Custom API Call",
+        "description": "Make a custom API call to a specific endpoint",
+        "properties": {
+          "url": {
+            "type": "DYNAMIC",
+            "displayName": "url",
+            "description": "",
+            "required": true
+          },
+          "method": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Method",
+            "description": "",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "GET",
+                  "value": "GET"
+                },
+                {
+                  "label": "POST",
+                  "value": "POST"
+                },
+                {
+                  "label": "PATCH",
+                  "value": "PATCH"
+                },
+                {
+                  "label": "PUT",
+                  "value": "PUT"
+                },
+                {
+                  "label": "DELETE",
+                  "value": "DELETE"
+                },
+                {
+                  "label": "HEAD",
+                  "value": "HEAD"
+                }
+              ]
+            }
+          },
+          "headers": {
+            "type": "OBJECT",
+            "displayName": "Headers",
+            "description": "Authorization headers are injected automatically from your connection.",
+            "required": true
+          },
+          "queryParams": {
+            "type": "OBJECT",
+            "displayName": "Query Parameters",
+            "description": "",
+            "required": true
+          },
+          "body_type": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Body Type",
+            "description": "",
+            "required": false,
+            "defaultValue": "none",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "None",
+                  "value": "none"
+                },
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Form Data",
+                  "value": "form_data"
+                },
+                {
+                  "label": "Raw",
+                  "value": "raw"
+                }
+              ]
+            }
+          },
+          "body": {
+            "type": "DYNAMIC",
+            "displayName": "Body",
+            "description": "",
+            "required": false
+          },
+          "response_is_binary": {
+            "type": "CHECKBOX",
+            "displayName": "Response is Binary ?",
+            "description": "Enable for files like PDFs, images, etc.",
+            "required": false,
+            "defaultValue": false
+          },
+          "failsafe": {
+            "type": "CHECKBOX",
+            "displayName": "No Error on Failure",
+            "description": "",
+            "required": false
+          },
+          "timeout": {
+            "type": "NUMBER",
+            "displayName": "Timeout (in seconds)",
+            "description": "",
+            "required": false
+          },
+          "followRedirects": {
+            "type": "CHECKBOX",
+            "displayName": "Follow redirects",
+            "description": "",
+            "required": false,
+            "defaultValue": false
+          },
+          "useUserToken": {
+            "type": "CHECKBOX",
+            "displayName": "Use user token",
+            "description": "Use user token instead of bot token",
+            "required": true,
+            "defaultValue": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "telegram_bot",
+    "displayName": "Telegram Bot",
+    "description": "Build chatbots for Telegram",
+    "logoUrl": "https://cdn.activepieces.com/pieces/telegram_bot.png",
+    "auth": {
+      "type": "SECRET_TEXT",
+      "description": "\n**Authentication**:\n\n1. Begin a conversation with the [Botfather](https://telegram.me/BotFather).\n2. Type in \"/newbot\"\n3. Choose a name for your bot\n4. Choose a username for your bot.\n5. Copy the token value from the Botfather and use it activepieces connection.\n6. Congratulations! You can now use your new Telegram connection in your flows.\n",
+      "displayName": "Bot Token",
+      "scope": [],
+      "authUrl": null
+    },
+    "actions": {
+      "send_text_message": {
+        "displayName": "Send Text Message",
+        "description": "Send a message through a Telegram bot",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forums; for forums supergroups only",
+            "required": false
+          },
+          "format": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Format",
+            "description": "Choose format you want ",
+            "required": false,
+            "defaultValue": "MarkdownV2",
+            "options": {
+              "options": [
+                {
+                  "label": "Markdown",
+                  "value": "MarkdownV2"
+                },
+                {
+                  "label": "HTML",
+                  "value": "HTML"
+                }
+              ]
+            }
+          },
+          "instructions_format": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n[Link example](https://core.telegram.org/bots/api#formatting-options)\n",
+            "required": false
+          },
+          "web_page_preview": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Web Page Preview",
+            "description": "Disable link previews for links in this message",
+            "required": false,
+            "defaultValue": false
+          },
+          "message": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "The message to be sent",
+            "required": true
+          },
+          "reply_markup": {
+            "type": "JSON",
+            "displayName": "Reply Markup",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user. Use special actions such as Build Inline Keyboard to generate this JSON object.",
+            "required": false
+          }
+        }
+      },
+      "send_media": {
+        "displayName": "Send Media",
+        "description": "Send a media message through a Telegram bot",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forums; for forums supergroups only",
+            "required": false
+          },
+          "media_type": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Media Type",
+            "description": "",
+            "required": false,
+            "options": {
+              "disabled": false,
+              "placeholder": "Select media type",
+              "options": [
+                {
+                  "label": "Image",
+                  "value": "photo"
+                },
+                {
+                  "label": "Video",
+                  "value": "video"
+                },
+                {
+                  "label": "Sticker",
+                  "value": "sticker"
+                },
+                {
+                  "label": "GIF",
+                  "value": "animation"
+                }
+              ]
+            }
+          },
+          "media": {
+            "type": "DYNAMIC",
+            "displayName": "Media Properties",
+            "description": "",
+            "required": false
+          },
+          "format": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Format",
+            "description": "Choose format you want ",
+            "required": false,
+            "defaultValue": "MarkdownV2",
+            "options": {
+              "options": [
+                {
+                  "label": "Markdown",
+                  "value": "MarkdownV2"
+                },
+                {
+                  "label": "HTML",
+                  "value": "HTML"
+                }
+              ]
+            }
+          },
+          "instructions_format": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n[Link example](https://core.telegram.org/bots/api#formatting-options)\n",
+            "required": false
+          },
+          "message": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "The message to be sent",
+            "required": true
+          },
+          "reply_markup": {
+            "type": "JSON",
+            "displayName": "Reply Markup",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user. Use special actions such as Build Inline Keyboard to generate this JSON object.",
+            "required": false
+          }
+        }
+      },
+      "get_chat_member": {
+        "displayName": "Get Chat Member",
+        "description": "Get member info (or null) for provided chat id and user id",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "",
+            "required": true
+          },
+          "user_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "User Id",
+            "description": "Unique identifier for the user",
+            "required": true
+          }
+        }
+      },
+      "get_file": {
+        "displayName": "Get File",
+        "description": "Get file information and download a file from Telegram",
+        "properties": {
+          "file_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "File ID",
+            "description": "File identifier to get information about",
+            "required": true
+          },
+          "download": {
+            "type": "CHECKBOX",
+            "displayName": "Download File",
+            "description": "If enabled, the file will be downloaded and returned as base64",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "create_invite_link": {
+        "displayName": "Create Invite Link",
+        "description": "Create an invite link for a chat",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "",
+            "required": true
+          },
+          "name": {
+            "type": "SHORT_TEXT",
+            "displayName": "Name",
+            "description": "Name of the invite link (max 32 chars)",
+            "required": false
+          },
+          "expire_date": {
+            "type": "DATE_TIME",
+            "displayName": "Expire Date",
+            "description": "Point in time when the link will expire",
+            "required": false
+          },
+          "member_limit": {
+            "type": "NUMBER",
+            "displayName": "Member Limit",
+            "description": "Maximum number of users that can be members of the chat simultaneously after joining the chat via this invite link; 1-99999",
+            "required": false
+          }
+        }
+      },
+      "request_approval_message": {
+        "displayName": "Request Approval Message",
+        "description": "Send an approval message to a chat and wait until the message is approved or disapproved",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "",
+            "required": true
+          },
+          "message": {
+            "type": "LONG_TEXT",
+            "displayName": "Message",
+            "description": "The approval message to be sent",
+            "required": true
+          },
+          "parse_mode": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Format",
+            "description": "Choose format for the message",
+            "required": false,
+            "defaultValue": "MarkdownV2",
+            "options": {
+              "options": [
+                {
+                  "label": "Markdown",
+                  "value": "MarkdownV2"
+                },
+                {
+                  "label": "HTML",
+                  "value": "HTML"
+                },
+                {
+                  "label": "Plain Text",
+                  "value": "None"
+                }
+              ]
+            }
+          },
+          "approve_button_text": {
+            "type": "SHORT_TEXT",
+            "displayName": "Approve Button Text",
+            "description": "Text for the approve button",
+            "required": false,
+            "defaultValue": "Approve"
+          },
+          "disapprove_button_text": {
+            "type": "SHORT_TEXT",
+            "displayName": "Disapprove Button Text",
+            "description": "Text for the disapprove button",
+            "required": false,
+            "defaultValue": "Disapprove"
+          }
+        }
+      },
+      "custom_api_call": {
+        "displayName": "Custom API Call",
+        "description": "Make a custom API call to a specific endpoint",
+        "properties": {
+          "url": {
+            "type": "DYNAMIC",
+            "displayName": "url",
+            "description": "",
+            "required": true
+          },
+          "method": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Method",
+            "description": "",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "GET",
+                  "value": "GET"
+                },
+                {
+                  "label": "POST",
+                  "value": "POST"
+                },
+                {
+                  "label": "PATCH",
+                  "value": "PATCH"
+                },
+                {
+                  "label": "PUT",
+                  "value": "PUT"
+                },
+                {
+                  "label": "DELETE",
+                  "value": "DELETE"
+                },
+                {
+                  "label": "HEAD",
+                  "value": "HEAD"
+                }
+              ]
+            }
+          },
+          "headers": {
+            "type": "OBJECT",
+            "displayName": "Headers",
+            "description": "Authorization headers are injected automatically from your connection.",
+            "required": true
+          },
+          "queryParams": {
+            "type": "OBJECT",
+            "displayName": "Query Parameters",
+            "description": "",
+            "required": true
+          },
+          "body_type": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Body Type",
+            "description": "",
+            "required": false,
+            "defaultValue": "none",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "None",
+                  "value": "none"
+                },
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Form Data",
+                  "value": "form_data"
+                },
+                {
+                  "label": "Raw",
+                  "value": "raw"
+                }
+              ]
+            }
+          },
+          "body": {
+            "type": "DYNAMIC",
+            "displayName": "Body",
+            "description": "",
+            "required": false
+          },
+          "response_is_binary": {
+            "type": "CHECKBOX",
+            "displayName": "Response is Binary ?",
+            "description": "Enable for files like PDFs, images, etc.",
+            "required": false,
+            "defaultValue": false
+          },
+          "failsafe": {
+            "type": "CHECKBOX",
+            "displayName": "No Error on Failure",
+            "description": "",
+            "required": false
+          },
+          "timeout": {
+            "type": "NUMBER",
+            "displayName": "Timeout (in seconds)",
+            "description": "",
+            "required": false
+          },
+          "followRedirects": {
+            "type": "CHECKBOX",
+            "displayName": "Follow redirects",
+            "description": "",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      }
+    }
+  }
+]

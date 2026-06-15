@@ -18,6 +18,11 @@
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:frontend": "vite",
     "dev:backend": "node server/server.js",
+    "dev:worker": "node server/engine/run-worker.js",
+    "dev:all": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:worker\"",
+    "dev:bun": "concurrently \"bun run dev:frontend\" \"bun run dev:backend:bun\" \"bun run dev:worker:bun\"",
+    "dev:backend:bun": "bun server/server.js",
+    "dev:worker:bun": "bun server/engine/run-worker.js",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -34,18 +39,21 @@
   "homepage": "https://github.com/KTBsomen/flowgraph#readme",
   "dependencies": {
     "@activepieces/piece-google-sheets": "^0.7.0",
-    "@activepieces/piece-openai": "^0.5.0",
-    "@activepieces/piece-slack": "^0.17.1",
-    "@activepieces/piece-telegram-bot": "^0.5.7",
+    "@activepieces/piece-groq": "^0.2.4",
+    "@activepieces/piece-openai": "^0.2.7",
+    "@activepieces/piece-slack": "^0.17.2",
+    "@activepieces/piece-telegram-bot": "^0.6.2",
     "@activepieces/pieces-framework": "^0.11.0",
     "@bull-board/api": "^7.2.1",
     "@bull-board/express": "^7.2.1",
     "@nangohq/node": "^0.42.0",
+    "better-sqlite3": "^12.10.0",
     "bullmq": "^5.78.0",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.1",
-    "ioredis": "^5.11.1"
+    "ioredis": "^5.11.1",
+    "mongoose": "^9.7.0"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

@@ -6,19 +6,20 @@ const Redis = require('ioredis');
 const { resolveConfig } = require('./resolver');
 const { createMemoryStore } = require('./services/store');
 const { createFilesService } = require('./services/files');
+const { getRedisConfig } = require('./redis-config');
 
 class FlowWorker {
   /**
    * @param {object} options
    * @param {import('./registry')} options.registry — Node registry
    * @param {import('./auth-resolver')} options.authResolver — Credentials resolver
-   * @param {object} [options.redis] — Redis connection options
+   * @param {object} [options.redis] — Redis connection options (or use REDIS_URL env)
    * @param {string} [options.filesRoot] — Directory for file storage
    */
   constructor(options = {}) {
     this.registry = options.registry;
     this.authResolver = options.authResolver;
-    this.redisConfig = options.redis || { host: '127.0.0.1', port: 6379 };
+    this.redisConfig = options.redis || getRedisConfig();
     this.filesRoot = options.filesRoot;
 
     // Dedicated connections
@@ -187,7 +188,10 @@ class FlowWorker {
           await this.propagateSkipsDownstream(runId, childId, edges, statusKey, indegreeKey, activeParentsKey, logsKey, nodes);
         }
       }
-    }  }
+    }
+    // Perform completion check
+    await this.checkRunCompletion(runId, nodes);
+  }
 
   /**
    * Recursively skips a node and all of its descendants.
@@ -230,6 +234,89 @@ class FlowWorker {
 
         if (newIndegree === 0) {
           queue.push(childId);
+        }
+      }
+    }
+    // Perform completion check
+    await this.checkRunCompletion(runId, nodes);
+  }
+
+  /**
+   * Check if the entire flow run is completed, and if so, report it to Usage Tracker.
+   */
+  async checkRunCompletion(runId, nodes) {
+    const statusKey = `run:${runId}:status`;
+    const statuses = await this.redis.hgetall(statusKey);
+    if (!statuses) return;
+
+    const allFinished = nodes.every(n => 
+      ['success', 'failed', 'skipped'].includes(statuses[n.id])
+    );
+
+    if (allFinished) {
+      // Use Redis NX lock to ensure only one thread reports
+      const lockKey = `run:${runId}:completed_lock`;
+      const lock = await this.redis.set(lockKey, '1', 'NX', 'EX', 60);
+      if (lock === 'OK') {
+        console.log(`[Worker] Run ${runId} completed. Gathering logs for usage tracking...`);
+        const logsKey = `run:${runId}:logs`;
+        const rawLogs = await this.redis.lrange(logsKey, 0, -1);
+        const logs = rawLogs.map(l => JSON.parse(l));
+
+        // Get flowId/projectId from graph metadata
+        const graphKey = `run:${runId}:graph`;
+        const graphDataRaw = await this.redis.get(graphKey);
+        let flowId = 'default_flow';
+        let projectId = 'default_project';
+        if (graphDataRaw) {
+          try {
+            const parsed = JSON.parse(graphDataRaw);
+            flowId = parsed.flowId || flowId;
+            projectId = parsed.projectId || projectId;
+          } catch (_) {}
+        }
+
+        // Post to tracker server (mounted on main port 3000) using native http
+        const trackerUrl = process.env.USAGE_TRACKER_URL || 'http://localhost:3000';
+        console.log(`[Worker] Reporting usage for run ${runId} to ${trackerUrl}...`);
+        
+        const http = require('http');
+        const https = require('https');
+        const { URL } = require('url');
+
+        try {
+          const parsedUrl = new URL(`${trackerUrl}/api/usage/report`);
+          const client = parsedUrl.protocol === 'https:' ? https : http;
+          const payload = JSON.stringify({ runId, flowId, projectId, logs });
+
+          const reqOpts = {
+            hostname: parsedUrl.hostname,
+            port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+            path: parsedUrl.pathname,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(payload)
+            },
+            timeout: 5000
+          };
+
+          const req = client.request(reqOpts, (res) => {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              console.log(`[Worker] Successfully reported usage for run ${runId}`);
+            } else {
+              console.error(`[Worker] Tracker returned status ${res.statusCode} for run ${runId}`);
+            }
+          });
+
+          req.on('error', (err) => {
+            console.error(`[Worker] Failed to send report to usage tracker:`, err.message);
+          });
+
+          req.write(payload);
+          req.end();
+        } catch (err) {
+          console.error(`[Worker] Error dispatching usage report:`, err);
         }
       }
     }

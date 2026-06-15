@@ -12,7 +12,9 @@ module.exports = {
 
   async execute(ctx) {
     const { config, inputs, globalVariables } = ctx;
-    const expression = config.expression || 'true';
+    const conditions = config.conditions || {};
+    const rules = conditions.rules || [];
+    const logicalOperator = conditions.logicalOperator || 'AND';
 
     // Build evaluation context from inputs + globalVariables
     const evalContext = {};
@@ -35,15 +37,21 @@ module.exports = {
       }
     }
 
-    let result = false;
-    try {
-      const argNames = Object.keys(evalContext);
-      const argValues = Object.values(evalContext);
-      const fn = new Function(...argNames, `return (${expression})`);
-      result = !!fn(...argValues);
-    } catch (e) {
-      result = false;
+    if (rules.length === 0) {
+      // If there's an old-style compiled expression, log a warning and default to true for safety
+      if (config.expression) {
+        console.warn('[Condition Node] Found raw expression in config. Expression evaluation is disabled for security reasons.');
+      }
+      return {
+        _outputPort: 'true',
+        value: true
+      };
     }
+
+    const results = rules.map(rule => evaluateRule(rule, evalContext));
+    const result = logicalOperator === 'OR'
+      ? results.some(Boolean)
+      : results.every(Boolean);
 
     return {
       _outputPort: result ? 'true' : 'false',
@@ -51,3 +59,35 @@ module.exports = {
     };
   }
 };
+
+function evaluateRule(rule, ctx) {
+  const { field, operator, value } = rule;
+  if (!field) return true;
+
+  // Navigate to the field value in context
+  const parts = field.split('.');
+  let fieldVal = ctx;
+  for (const p of parts) {
+    if (fieldVal && typeof fieldVal === 'object' && p in fieldVal) {
+      fieldVal = fieldVal[p];
+    } else {
+      fieldVal = undefined;
+      break;
+    }
+  }
+
+  const strVal = String(fieldVal ?? '');
+
+  switch (operator) {
+    case 'equals': return strVal === value;
+    case 'not_equals': return strVal !== value;
+    case 'greater_than': return Number(fieldVal) > Number(value);
+    case 'less_than': return Number(fieldVal) < Number(value);
+    case 'contains': return strVal.toLowerCase().includes((value || '').toLowerCase());
+    case 'starts_with': return strVal.startsWith(value || '');
+    case 'ends_with': return strVal.endsWith(value || '');
+    case 'is_empty': return !fieldVal;
+    case 'is_not_empty': return !!fieldVal;
+    default: return true;
+  }
+}
