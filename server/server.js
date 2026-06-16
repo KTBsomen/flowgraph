@@ -21,7 +21,7 @@ app.use((req, res, next) => {
 });
 
 // Configure CORS
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:4000').split(',');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'https://getlostleads.com,http://localhost:5173,http://localhost:4000').split(',');
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
