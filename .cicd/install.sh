@@ -93,12 +93,25 @@ fi
 log "Configuring Caddy"
 
 sudo tee /etc/caddy/Caddyfile >/dev/null <<EOF
-getlostleads.com {
+# Main website and API configuration
+getlostleads.com, www.getlostleads.com {
     handle_path /flowgraph-api/* {
         reverse_proxy localhost:3000
     }
-    reverse_proxy localhost:4000
+
+    handle {
+        reverse_proxy localhost:4000
+    }
 }
+
+# Dedicated Server-Sent Events (SSE) configuration
+sse.getlostleads.com {
+    reverse_proxy localhost:4000 {
+        # Disables response buffering so data streams immediately to the client
+        flush_interval -1
+    }
+}
+
 EOF
 
 sudo systemctl enable caddy
