@@ -12,6 +12,7 @@ if [ "${CICD_SERVICE_NAME:-}" = "flowgraph-worker" ]; then
     exit 0
 fi
 
+
 PORT=${CICD_PORT:-${1:-3000}}
 URL="http://localhost:${PORT}/api/usage/pricing"
 
