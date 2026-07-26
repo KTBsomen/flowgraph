@@ -8,6 +8,27 @@
  * Exported as pure functions — no class, no state.
  */
 
+function getNestedValue(obj, path) {
+  if (!obj || typeof obj !== 'object') return undefined;
+  if (obj[path] !== undefined) return obj[path]; // Direct match check
+  const parts = path.split('.');
+  let current = obj;
+  for (const part of parts) {
+    if (current && typeof current === 'object') {
+      if (part in current) {
+        current = current[part];
+      } else if (Array.isArray(current) && !isNaN(part)) {
+        current = current[Number(part)];
+      } else {
+        return undefined;
+      }
+    } else {
+      return undefined;
+    }
+  }
+  return current;
+}
+
 /**
  * Resolve a single template string against step outputs and global variables.
  * @param {string} value — The string potentially containing {{...}} templates.
@@ -25,8 +46,9 @@ function resolveVariables(value, stepsOutputs, globalVars = {}) {
     const trimmed = directMatch[1].trim();
 
     // Check global variables first
-    if (globalVars[trimmed] !== undefined) {
-      return globalVars[trimmed];
+    const globalVal = getNestedValue(globalVars, trimmed);
+    if (globalVal !== undefined) {
+      return globalVal;
     }
 
     // Check step references
@@ -58,8 +80,9 @@ function resolveVariables(value, stepsOutputs, globalVars = {}) {
     const trimmed = pathStr.trim();
 
     // Check global variables first (e.g. {{user.email}})
-    if (globalVars[trimmed] !== undefined) {
-      return globalVars[trimmed];
+    const globalVal = getNestedValue(globalVars, trimmed);
+    if (globalVal !== undefined) {
+      return globalVal;
     }
 
     // Check step references (e.g. {{steps.nodeId.output.field}})

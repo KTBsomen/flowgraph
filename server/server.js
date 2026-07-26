@@ -1,3 +1,6 @@
+// Global expr-eval security hardening
+require('./security-patch');
+
 const dns = require("node:dns");
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 
@@ -60,11 +63,24 @@ async function loadConnections() {
 }
 
 async function saveConnection(connectionId, pieceName, connData) {
+  if (connData === undefined && typeof connectionId === 'string' && connectionId.includes(':')) {
+    const parts = connectionId.split(':');
+    const realConnectionId = parts[0];
+    const realPieceName = parts.slice(1).join(':');
+    connData = pieceName;
+    connectionId = realConnectionId;
+    pieceName = realPieceName;
+  }
+
   const key = `${connectionId}:${pieceName}`;
   try {
     const doc = await Credential.findOne({ key }).lean();
     let merged = doc ? doc.value : {};
     merged = { ...merged, ...connData, updatedAt: Date.now() };
+
+    // Clear failed refresh flags if setting new credentials
+    delete merged.refresh_failed;
+    delete merged.refresh_error;
 
     await Credential.findOneAndUpdate(
       { key },
@@ -254,7 +270,7 @@ app.get('/api/pieces', (req, res) => {
     }
 
     const piecesMetadata = registeredPieces.map(([name, piece]) => {
-      const actionsObj = piece.actions();
+      const actionsObj = typeof piece.actions === 'function' ? piece.actions() : (piece._actions || {});
       const actions = {};
 
       for (const [actionName, actionDef] of Object.entries(actionsObj)) {
@@ -348,7 +364,7 @@ app.post('/api/options', async (req, res) => {
     const piece = handler ? handler.piece : null;
     if (!piece) return res.status(400).json({ error: `Piece "${pieceName}" not found.` });
 
-    const actionsObj = piece.actions();
+    const actionsObj = typeof piece.actions === 'function' ? piece.actions() : (piece._actions || {});
     const action = actionsObj[actionName];
     if (!action) return res.status(400).json({ error: `Action "${actionName}" not found.` });
 
@@ -360,7 +376,11 @@ app.post('/api/options', async (req, res) => {
     const resolvedAuth = await resolveCredentials(enrichedAuthConfig);
 
     if (typeof prop.options === 'function') {
-      const result = await prop.options({ auth: resolvedAuth, propsValue, ...propsValue });
+      const searchValue = req.body.searchValue || '';
+      const result = await prop.options(
+        { auth: resolvedAuth, ...propsValue },
+        { searchValue }
+      );
       console.log(`[Server] Options result for ${propertyName}: disabled=${result.disabled}, count=${result.options?.length}`);
       res.json(result);
     } else if (prop.options) {
@@ -387,7 +407,7 @@ app.post('/api/properties', async (req, res) => {
     const piece = handler ? handler.piece : null;
     if (!piece) return res.status(400).json({ error: `Piece "${pieceName}" not found.` });
 
-    const actionsObj = piece.actions();
+    const actionsObj = typeof piece.actions === 'function' ? piece.actions() : (piece._actions || {});
     const action = actionsObj[actionName];
     if (!action) return res.status(400).json({ error: `Action "${actionName}" not found.` });
 
@@ -883,8 +903,10 @@ app.listen(PORT, () => {
   const registeredPieces = [];
   for (const [key, handler] of engine.registry.handlers.entries()) {
     if (key.startsWith('ap_') && handler.piece) {
-      const actionsCount = Object.keys(handler.piece.actions()).length;
-      registeredPieces.push(`${handler.piece.displayName} (${actionsCount} actions)`);
+      const piece = handler.piece;
+      const actionsObj = typeof piece.actions === 'function' ? piece.actions() : (piece._actions || {});
+      const actionsCount = Object.keys(actionsObj).length;
+      registeredPieces.push(`${piece.displayName} (${actionsCount} actions)`);
     }
   }
 

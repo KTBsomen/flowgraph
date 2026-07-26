@@ -21,7 +21,7 @@ async function main() {
   }
 
   const piecesMetadata = registeredPieces.map(([name, piece]) => {
-    const actionsObj = piece.actions();
+    const actionsObj = typeof piece.actions === 'function' ? piece.actions() : (piece._actions || {});
     const actions = {};
 
     for (const [actionName, actionDef] of Object.entries(actionsObj)) {

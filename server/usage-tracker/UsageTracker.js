@@ -16,7 +16,7 @@ class UsageTracker {
   /**
    * Compute final run cost, save to MongoDB, and trigger webhook.
    */
-  async processReport({ runId, flowId, projectId, logs = [] }) {
+  async processReport({ runId, flowId, projectId, logs = [], submissionId }) {
     if (!runId) throw new Error('Missing runId');
 
     // Determine overall run status
@@ -65,6 +65,7 @@ class UsageTracker {
           runId,
           flowId: flowId || 'default_flow',
           projectId: projectId || 'default_project',
+          submissionId: submissionId || '',
           status: runStatus,
           totalCost,
           nodeCount,

@@ -13,6 +13,7 @@ export const BUILT_IN_NODES = [
     configSchema: {
       triggerName: { type: 'text', label: 'Trigger Name', default: 'My Workflow' },
       description: { type: 'textarea', label: 'Description', default: '' },
+      variables: { type: 'variable_builder', label: 'Trigger Variables' },
     },
     style: { background: 'linear-gradient(135deg,#10b981,#059669)' },
   },
@@ -42,30 +43,7 @@ export const BUILT_IN_NODES = [
     },
     style: { background: 'linear-gradient(135deg,#6366f1,#4f46e5)' },
   },
-  {
-    type: "ai",
-    label: "Groq",
-    category: "Operations",
-    description: "AI",
-    inputs: [{ name: 'in', label: 'Input', type: 'any' }],
-    outputs: [{ name: 'out', label: 'Output', type: 'any' }],
-    configSchema: {
-      actionName: { 
-        type: 'text', 
-        label: 'API Key', 
-        default: '',
-        help: {
-          text: 'Get your API key from the Groq console. Visit https://console.groq.com/keys for more info.',
-          image: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=400'
-        }
-      },
-      timeout: { type: 'number', label: 'Timeout (ms)', default: 5000 },
-    },
-    style: {
-      background: 'linear-gradient(135deg,#6366f1,#4f46e5)',
-      icon: '<svg  xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24" > <path d="M3 3v18h18V3zm11.72 13.37c-.41.38-.82.66-1.33.87l-.21.09c-.83.3-1.82.21-2.63-.1-.45-.21-.82-.46-1.19-.8.33-.41.66-.75 1.07-1.07l.27.21c.5.35 1 .47 1.61.41.62-.12 1.12-.4 1.52-.9.37-.61.41-1.09.41-1.8V10.4c0-.72-.15-1.18-.6-1.74-.61-.49-1.17-.74-1.96-.7-.66.11-1.19.42-1.59.95-.33.53-.48 1.07-.37 1.69.2.68.45 1.25 1.07 1.61.52.27.98.32 1.56.33h.25c.2.02.4.02.61.03V14c-1.49.06-2.65.06-3.84-.97a4.22 4.22 0 0 1-1.23-2.8c.04-.88.35-1.6.86-2.32l.15-.23c1.43-1.51 3.7-1.61 5.31-.31l.17.14c.58.52.96 1.25 1.08 2.01 0 .16.01.33.01.49v3.6c0 1.05-.3 1.95-1.02 2.74Z"/></svg>'
-    },
-  },
+
   {
     type: 'condition',
     label: 'Condition',
@@ -89,9 +67,9 @@ export const BUILT_IN_NODES = [
     inputs: [{ name: 'in', label: 'Input', type: 'any' }],
     outputs: [], // Dynamically populated by config
     configSchema: {
-      routes: { 
-        type: 'list', 
-        label: 'Output Routes', 
+      routes: {
+        type: 'list',
+        label: 'Output Routes',
         default: ['Success', 'Failure'],
         description: 'Add or remove routes. Each item creates an output port.',
         help: {
@@ -131,9 +109,9 @@ export const BUILT_IN_NODES = [
       { name: 'error', label: 'Error', type: 'any' },
     ],
     configSchema: {
-      url: { 
-        type: 'text', 
-        label: 'URL', 
+      url: {
+        type: 'text',
+        label: 'URL',
         default: 'https://api.example.com/endpoint',
         help: {
           text: 'The full URL endpoint to send the request to. Must use https:// for secure communication.',
@@ -145,6 +123,45 @@ export const BUILT_IN_NODES = [
       body: { type: 'code', label: 'Body (JSON)', default: '{}' },
     },
     style: { background: 'linear-gradient(135deg,#ec4899,#db2777)' },
+  },
+  {
+    type: 'email',
+    label: 'Send Email',
+    category: 'Integration',
+    description: 'Send an email via Zoho Zeptomail',
+    inputs: [{ name: 'in', label: 'Input', type: 'any' }],
+    outputs: [{ name: 'out', label: 'Output', type: 'any' }],
+    configSchema: {
+      to: { type: 'text', label: 'To', default: '', placeholder: 'recipient@example.com' },
+      subject: { type: 'text', label: 'Subject', default: '', placeholder: 'Subject line' },
+      message: { type: 'textarea', label: 'Message', default: '', placeholder: 'HTML or text content' },
+      replyTo: { type: 'text', label: 'Reply To', default: '', placeholder: 'reply@example.com' },
+      cc: { type: 'text', label: 'Cc', default: '', placeholder: 'cc@example.com' },
+      bcc: { type: 'text', label: 'Bcc', default: '', placeholder: 'bcc@example.com' },
+    },
+    style: {
+      background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
+      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>'
+    },
+  },
+  {
+    type: 'webhook',
+    label: 'Webhook',
+    category: 'Integration',
+    description: 'Trigger an external webhook URL',
+    inputs: [{ name: 'in', label: 'Input', type: 'any' }],
+    outputs: [{ name: 'out', label: 'Output', type: 'any' }],
+    configSchema: {
+      url: { type: 'text', label: 'URL', default: 'https://api.example.com/webhook', placeholder: 'https://example.com/webhook' },
+      method: { type: 'select', label: 'Method', options: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], default: 'POST' },
+      headers: { type: 'code', label: 'Headers (JSON)', default: '{}' },
+      body: { type: 'code', label: 'Body (JSON)', default: '{}' },
+      secret: { type: 'password', label: 'Signing Secret', default: '', placeholder: 'Optional signing secret' },
+    },
+    style: {
+      background: 'linear-gradient(135deg,#7c3aed,#4c1d95)',
+      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253"/></svg>'
+    },
   },
   {
     type: 'delay',

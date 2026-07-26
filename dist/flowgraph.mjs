@@ -582,6 +582,10 @@ var e = class {
 				type: "textarea",
 				label: "Description",
 				default: ""
+			},
+			variables: {
+				type: "variable_builder",
+				label: "Trigger Variables"
 			}
 		},
 		style: { background: "linear-gradient(135deg,#10b981,#059669)" }
@@ -638,42 +642,6 @@ var e = class {
 			}
 		},
 		style: { background: "linear-gradient(135deg,#6366f1,#4f46e5)" }
-	},
-	{
-		type: "ai",
-		label: "Groq",
-		category: "Operations",
-		description: "AI",
-		inputs: [{
-			name: "in",
-			label: "Input",
-			type: "any"
-		}],
-		outputs: [{
-			name: "out",
-			label: "Output",
-			type: "any"
-		}],
-		configSchema: {
-			actionName: {
-				type: "text",
-				label: "API Key",
-				default: "",
-				help: {
-					text: "Get your API key from the Groq console. Visit https://console.groq.com/keys for more info.",
-					image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&q=80&w=400"
-				}
-			},
-			timeout: {
-				type: "number",
-				label: "Timeout (ms)",
-				default: 5e3
-			}
-		},
-		style: {
-			background: "linear-gradient(135deg,#6366f1,#4f46e5)",
-			icon: "<svg  xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" fill=\"currentColor\" viewBox=\"0 0 24 24\" > <path d=\"M3 3v18h18V3zm11.72 13.37c-.41.38-.82.66-1.33.87l-.21.09c-.83.3-1.82.21-2.63-.1-.45-.21-.82-.46-1.19-.8.33-.41.66-.75 1.07-1.07l.27.21c.5.35 1 .47 1.61.41.62-.12 1.12-.4 1.52-.9.37-.61.41-1.09.41-1.8V10.4c0-.72-.15-1.18-.6-1.74-.61-.49-1.17-.74-1.96-.7-.66.11-1.19.42-1.59.95-.33.53-.48 1.07-.37 1.69.2.68.45 1.25 1.07 1.61.52.27.98.32 1.56.33h.25c.2.02.4.02.61.03V14c-1.49.06-2.65.06-3.84-.97a4.22 4.22 0 0 1-1.23-2.8c.04-.88.35-1.6.86-2.32l.15-.23c1.43-1.51 3.7-1.61 5.31-.31l.17.14c.58.52.96 1.25 1.08 2.01 0 .16.01.33.01.49v3.6c0 1.05-.3 1.95-1.02 2.74Z\"/></svg>"
-		}
 	},
 	{
 		type: "condition",
@@ -828,6 +796,120 @@ var e = class {
 			}
 		},
 		style: { background: "linear-gradient(135deg,#ec4899,#db2777)" }
+	},
+	{
+		type: "email",
+		label: "Send Email",
+		category: "Integration",
+		description: "Send an email via Zoho Zeptomail",
+		inputs: [{
+			name: "in",
+			label: "Input",
+			type: "any"
+		}],
+		outputs: [{
+			name: "out",
+			label: "Output",
+			type: "any"
+		}],
+		configSchema: {
+			to: {
+				type: "text",
+				label: "To",
+				default: "",
+				placeholder: "recipient@example.com"
+			},
+			subject: {
+				type: "text",
+				label: "Subject",
+				default: "",
+				placeholder: "Subject line"
+			},
+			message: {
+				type: "textarea",
+				label: "Message",
+				default: "",
+				placeholder: "HTML or text content"
+			},
+			replyTo: {
+				type: "text",
+				label: "Reply To",
+				default: "",
+				placeholder: "reply@example.com"
+			},
+			cc: {
+				type: "text",
+				label: "Cc",
+				default: "",
+				placeholder: "cc@example.com"
+			},
+			bcc: {
+				type: "text",
+				label: "Bcc",
+				default: "",
+				placeholder: "bcc@example.com"
+			}
+		},
+		style: {
+			background: "linear-gradient(135deg,#3b82f6,#1d4ed8)",
+			icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z\"/></svg>"
+		}
+	},
+	{
+		type: "webhook",
+		label: "Webhook",
+		category: "Integration",
+		description: "Trigger an external webhook URL",
+		inputs: [{
+			name: "in",
+			label: "Input",
+			type: "any"
+		}],
+		outputs: [{
+			name: "out",
+			label: "Output",
+			type: "any"
+		}],
+		configSchema: {
+			url: {
+				type: "text",
+				label: "URL",
+				default: "https://api.example.com/webhook",
+				placeholder: "https://example.com/webhook"
+			},
+			method: {
+				type: "select",
+				label: "Method",
+				options: [
+					"GET",
+					"POST",
+					"PUT",
+					"PATCH",
+					"DELETE"
+				],
+				default: "POST"
+			},
+			headers: {
+				type: "code",
+				label: "Headers (JSON)",
+				default: "{}"
+			},
+			body: {
+				type: "code",
+				label: "Body (JSON)",
+				default: "{}"
+			},
+			secret: {
+				type: "password",
+				label: "Signing Secret",
+				default: "",
+				placeholder: "Optional signing secret"
+			}
+		},
+		style: {
+			background: "linear-gradient(135deg,#7c3aed,#4c1d95)",
+			icon: "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-.778.099-1.533.284-2.253\"/></svg>"
+		}
 	},
 	{
 		type: "delay",
@@ -1066,11 +1148,12 @@ var e = class {
 	}
 	show(e, t) {
 		if (this._nodeId = e.id, this._node = e, this._onChange = t, e._apPiece) {
+			this._pieceAuthStatus = { loading: !0 }, this._render(e), this.container.querySelector(".wf-config").classList.add("wf-config--active");
 			let t = e._apPiece.name || e.type.replace(/^ap_/, ""), n = this._workflow?.connectionId || "default_connection", r = this._workflow?.host || "";
 			fetch(`${r}/api/oauth/status?pieceName=${t}&connectionId=${n}`).then((e) => e.json()).then((t) => {
-				this._pieceAuthStatus = t, this._render(e), this.container.querySelector(".wf-config").classList.add("wf-config--active");
+				this._nodeId === e.id && (this._pieceAuthStatus = t, this._render(e));
 			}).catch((t) => {
-				console.error("[ConfigPanel] Failed to fetch piece auth status:", t), this._pieceAuthStatus = null, this._render(e), this.container.querySelector(".wf-config").classList.add("wf-config--active");
+				console.error("[ConfigPanel] Failed to fetch piece auth status:", t), this._nodeId === e.id && (this._pieceAuthStatus = { connected: !1 }, this._render(e));
 			});
 		} else this._pieceAuthStatus = null, this._render(e), this.container.querySelector(".wf-config").classList.add("wf-config--active");
 	}
@@ -1097,24 +1180,26 @@ var e = class {
       </div>
 
       ${e._apPiece && e._apPiece.auth ? (() => {
-			let t = this._pieceAuthStatus || {}, n = t.connected || !1, r = t.isGlobal || !1, i = t.authType || null, a = t.updatedAt ? new Date(t.updatedAt).toLocaleString() : null, o = e._apPiece.auth.type === "OAUTH2" || Array.isArray(e._apPiece.auth) && e._apPiece.auth.some((e) => e.type === "OAUTH2"), s = t.hasSystemOAuth || !1, c = e._apPiece.displayName || e._apPiece.name, l = e._apPiece.auth.displayName || "API Key", u = e._apPiece.auth.description || "";
+			let t = this._pieceAuthStatus || {}, n = e._apPiece.displayName || e._apPiece.name;
+			if (t.loading) return "\n            <div class=\"wf-config-section\">\n              <div class=\"wf-config-section-title\">Authentication</div>\n              <div style=\"background:#1e293b; border:1px solid #334155; padding:12px; border-radius:6px; margin-bottom:12px; display:flex; flex-direction:column; gap:10px;\">\n                <div style=\"display:flex; justify-content:space-between; align-items:center;\">\n                  <div class=\"wf-skeleton\" style=\"width:110px; height:13px; border-radius:4px;\"></div>\n                  <div class=\"wf-skeleton\" style=\"width:75px; height:18px; border-radius:10px;\"></div>\n                </div>\n                <div class=\"wf-skeleton\" style=\"width:100%; height:32px; border-radius:4px;\"></div>\n              </div>\n            </div>\n          ";
+			let r = t.connected || !1, i = t.isGlobal || !1, a = t.authType || null, o = t.updatedAt ? new Date(t.updatedAt).toLocaleString() : null, s = e._apPiece.auth.type === "OAUTH2" || Array.isArray(e._apPiece.auth) && e._apPiece.auth.some((e) => e.type === "OAUTH2"), c = t.hasSystemOAuth || !1, l = e._apPiece.auth.displayName || "API Key", u = e._apPiece.auth.description || "";
 			return this._workflow?.connectionId, t.isGlobal, `
           <div class="wf-config-section">
             <div class="wf-config-section-title">Authentication</div>
             <div class="wf-config-field" data-field="authConfig" style="background:#1e293b; border:1px solid #334155; padding:12px; border-radius:6px; margin-bottom:12px;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                <label style="font-weight:600; color:#cbd5e1; font-size:13px;">${c}</label>
-                ${n ? "\n                  <span style=\"display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#34d399;\">\n                    <svg width=\"10\" height=\"10\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#10b981\"/></svg>\n                    Connected\n                  </span>\n                " : "\n                  <span style=\"display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;\">\n                    <svg width=\"10\" height=\"10\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#ef4444\"/></svg>\n                    Not Connected\n                  </span>\n                "}
+                <label style="font-weight:600; color:#cbd5e1; font-size:13px;">${n}</label>
+                ${r ? "\n                  <span style=\"display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:#34d399;\">\n                    <svg width=\"10\" height=\"10\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#10b981\"/></svg>\n                    Connected\n                  </span>\n                " : "\n                  <span style=\"display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;\">\n                    <svg width=\"10\" height=\"10\" viewBox=\"0 0 10 10\"><circle cx=\"5\" cy=\"5\" r=\"4\" fill=\"#ef4444\"/></svg>\n                    Not Connected\n                  </span>\n                "}
               </div>
 
-              ${n ? `
+              ${r ? `
                 <!-- Connected State -->
                 <div class="wf-auth-connected-state">
                   <div style="font-size:11px;color:#64748b;margin-bottom:10px;">
-                    ${r ? "✓ Using server environment credentials" : a ? `Last updated: ${a}` : "Account connected"}
-                    ${i === "api_key" ? " (API Key)" : i === "oauth2" ? " (OAuth2)" : ""}
+                    ${i ? "✓ Using server environment credentials" : o ? `Last updated: ${o}` : "Account connected"}
+                    ${a === "api_key" ? " (API Key)" : a === "oauth2" ? " (OAuth2)" : ""}
                   </div>
-                  ${r ? "" : "\n                    <button type=\"button\" class=\"wf-auth-disconnect-btn\" style=\"width:100%;background:transparent;border:1px solid #ef4444;color:#f87171;padding:6px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;\">\n                      <svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18.36 6.64a9 9 0 1 1-12.73 0\"/><line x1=\"12\" y1=\"2\" x2=\"12\" y2=\"12\"/></svg>\n                      Disconnect\n                    </button>\n                  "}
+                  ${i ? "" : "\n                    <button type=\"button\" class=\"wf-auth-disconnect-btn\" style=\"width:100%;background:transparent;border:1px solid #ef4444;color:#f87171;padding:6px;border-radius:4px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;\">\n                      <svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18.36 6.64a9 9 0 1 1-12.73 0\"/><line x1=\"12\" y1=\"2\" x2=\"12\" y2=\"12\"/></svg>\n                      Disconnect\n                    </button>\n                  "}
                 </div>
               ` : `
                 <!-- Not Connected State -->
@@ -1125,11 +1210,11 @@ var e = class {
                     </div>
                   ` : ""}
 
-                  ${o && s ? `
+                  ${s && c ? `
                     <!-- OAuth2 Connect Button -->
                     <button type="button" class="wf-oauth-connect-btn" style="width:100%;display:flex;justify-content:center;align-items:center;gap:8px;background:#4f46e5;color:white;border:none;padding:8px;border-radius:4px;cursor:pointer;font-weight:500;font-size:13px;">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/></svg>
-                      Connect with ${c}
+                      Connect with ${n}
                     </button>
                   ` : `
                     <!-- API Key Entry Form -->
@@ -1285,7 +1370,7 @@ var e = class {
 			});
 		}), this.bodyEl.querySelectorAll(".wf-config-list").forEach((e) => {
 			this._bindListEvents(e);
-		}), this._bindConditionBuilders(), this._bindRouterBuilders(), this._bindVarPickers();
+		}), this._bindConditionBuilders(), this._bindRouterBuilders(), this._bindVariableBuilders(), this._bindVarPickers();
 		let d = this.bodyEl.querySelector(".wf-oauth-connect-btn");
 		d && d.addEventListener("click", () => {
 			let t = this._workflow?.connectionId || "default_connection", n = e._apPiece.name;
@@ -1373,7 +1458,7 @@ var e = class {
 			} finally {
 				f.disabled = !1, f.innerHTML = t;
 			}
-		})), this._loadAllDynamicDropdowns(), this._loadDynamicPropertiesContainers();
+		})), (!this._pieceAuthStatus || !this._pieceAuthStatus.loading) && (this._loadAllDynamicDropdowns(), this._loadDynamicPropertiesContainers());
 	}
 	_getUpstreamVariables(e) {
 		let t = [];
@@ -1387,7 +1472,16 @@ var e = class {
 			let r = n.nodes.get(e);
 			if (!r) continue;
 			let i = r.label || r.id, a = this._testOutputs[e];
-			if (a && typeof a == "object") {
+			if (r.type === "start") {
+				let n = r.config?.variables || [];
+				for (let r of n) r.name && (t.push({
+					name: `steps.${e}.output.data.${r.name}`,
+					label: `${i} ⟶ data.${r.name}`
+				}), t.push({
+					name: `steps.${e}.output.variables.${r.name}`,
+					label: `${i} ⟶ variables.${r.name}`
+				}));
+			} else if (a && typeof a == "object") {
 				let n = [], r = (e, t = "") => {
 					if (e != null) {
 						if (typeof e != "object") {
@@ -1443,29 +1537,42 @@ var e = class {
 			i && i.remove();
 			let a = document.createElement("div");
 			a.className = "wf-var-popover";
-			let o = this._workflow?.availableVariables || [], s = this._getUpstreamVariables(this._nodeId), c = [...o, ...s];
+			let o = this._workflow?.availableVariables || [], s = Array.from(this._workflow?.state?.nodes?.values() || []).find((e) => e.type === "start"), c = [];
+			if (s) {
+				let e = s.config?.variables || [];
+				for (let t of e) t.name && c.push({
+					name: `data.${t.name}`,
+					label: `data.${t.name}`,
+					type: t.type || "string"
+				});
+			}
+			let l = this._getUpstreamVariables(this._nodeId), u = [
+				...o,
+				...c,
+				...l
+			];
 			a.innerHTML = `
         <div class="wf-var-popover-search">
           <input type="text" placeholder="Search variables..." class="wf-var-search-input" autofocus>
         </div>
         <div class="wf-var-popover-list">
-          ${c.map((e) => `
+          ${u.map((e) => `
             <div class="wf-var-popover-item" data-var="${e.name}">
               <span class="wf-var-item-label">${e.label}</span>
               <span class="wf-var-item-name">{{${e.name}}}</span>
             </div>
           `).join("")}
-          ${c.length === 0 ? "\n            <div style=\"padding: 10px; font-size: 11px; color: var(--wf-text-muted); text-align: center;\">No variables available</div>\n          " : ""}
+          ${u.length === 0 ? "\n            <div style=\"padding: 10px; font-size: 11px; color: var(--wf-text-muted); text-align: center;\">No variables available</div>\n          " : ""}
         </div>
       `, document.body.appendChild(a);
-			let l = t.getBoundingClientRect(), u = a.offsetWidth || 240, d = a.offsetHeight || 250, f = window.innerHeight - l.bottom, p = l.top, m;
-			f < d && p > f ? (m = l.top + window.scrollY - d - 5, a.style.transformOrigin = "bottom center") : (m = l.bottom + window.scrollY + 5, a.style.transformOrigin = "top center");
-			let h = l.left + window.scrollX + l.width / 2 - u / 2, g = window.innerWidth + window.scrollX - u - 10;
-			h = Math.max(10, Math.min(h, g)), a.style.top = `${m}px`, a.style.left = `${h}px`;
-			let _ = a.querySelector(".wf-var-search-input"), v = a.querySelectorAll(".wf-var-popover-item");
-			_.focus(), _.addEventListener("input", (e) => {
+			let d = t.getBoundingClientRect(), f = a.offsetWidth || 240, p = a.offsetHeight || 250, m = window.innerHeight - d.bottom, h = d.top, g;
+			m < p && h > m ? (g = d.top + window.scrollY - p - 5, a.style.transformOrigin = "bottom center") : (g = d.bottom + window.scrollY + 5, a.style.transformOrigin = "top center");
+			let _ = d.left + window.scrollX + d.width / 2 - f / 2, v = window.innerWidth + window.scrollX - f - 10;
+			_ = Math.max(10, Math.min(_, v)), a.style.top = `${g}px`, a.style.left = `${_}px`;
+			let y = a.querySelector(".wf-var-search-input"), b = a.querySelectorAll(".wf-var-popover-item");
+			y.focus(), y.addEventListener("input", (e) => {
 				let t = e.target.value.toLowerCase();
-				v.forEach((e) => {
+				b.forEach((e) => {
 					let n = e.querySelector(".wf-var-item-label").textContent.toLowerCase(), r = e.querySelector(".wf-var-item-name").textContent.toLowerCase();
 					n.includes(t) || r.includes(t) ? e.style.display = "flex" : e.style.display = "none";
 				});
@@ -1477,10 +1584,10 @@ var e = class {
 					r.setSelectionRange(s, s), a.remove(), this._emitChange();
 				});
 			});
-			let y = (e) => {
-				!a.contains(e.target) && e.target !== t && (a.remove(), document.removeEventListener("mousedown", y));
+			let x = (e) => {
+				!a.contains(e.target) && e.target !== t && (a.remove(), document.removeEventListener("mousedown", x));
 			};
-			document.addEventListener("mousedown", y);
+			document.addEventListener("mousedown", x);
 		}));
 	}
 	_conditionRuleHTML(e, t, n = "") {
@@ -1619,6 +1726,28 @@ var e = class {
 			});
 		});
 	}
+	_bindVariableBuilders() {
+		this.bodyEl.querySelectorAll(".wf-variable-builder").forEach((e) => {
+			let t = e.querySelector(".wf-vb-rows");
+			e.querySelector(".wf-vb-add-btn").addEventListener("click", () => {
+				let e = t.querySelector(".wf-vb-empty");
+				e && e.remove();
+				let n = t.querySelectorAll(".wf-vb-row").length, r = document.createElement("div");
+				r.className = "wf-vb-row", r.dataset.index = n, r.style = "display:flex; gap:6px; align-items:center; background:rgba(255,255,255,0.03); border:1px solid var(--wf-border); padding:6px; border-radius:6px;", r.innerHTML = "\n          <input type=\"text\" class=\"wf-input wf-vb-name\" placeholder=\"Var name...\" value=\"\" style=\"flex:2; font-size:12px;\">\n          <select class=\"wf-input wf-vb-type\" style=\"flex:1.2; font-size:12px; padding:0 4px; height: 32px; background: var(--wf-bg-input); border: 1px solid var(--wf-border); border-radius: 4px; color: var(--wf-text);\">\n            <option value=\"string\" selected>String</option>\n            <option value=\"number\">Number</option>\n            <option value=\"boolean\">Boolean</option>\n          </select>\n          <input type=\"text\" class=\"wf-input wf-vb-value\" placeholder=\"Default...\" value=\"\" style=\"flex:2; font-size:12px;\">\n          <button type=\"button\" class=\"wf-vb-remove-btn\" style=\"background:transparent; border:none; color:#ef4444; font-size:14px; cursor:pointer; padding:0 4px;\">✕</button>\n        ", t.appendChild(r), this._bindVariableRowEvents(r), this._emitChange();
+			}), t.querySelectorAll(".wf-vb-row").forEach((e) => {
+				this._bindVariableRowEvents(e);
+			});
+		});
+	}
+	_bindVariableRowEvents(e) {
+		let t = e.querySelector(".wf-vb-name"), n = e.querySelector(".wf-vb-type"), r = e.querySelector(".wf-vb-value"), i = e.querySelector(".wf-vb-remove-btn");
+		t.addEventListener("input", () => this._emitChange()), n.addEventListener("change", () => this._emitChange()), r.addEventListener("input", () => this._emitChange()), i.addEventListener("click", () => {
+			let t = e.parentElement;
+			e.remove(), t.querySelectorAll(".wf-vb-row").forEach((e, t) => {
+				e.dataset.index = t;
+			}), t.querySelectorAll(".wf-vb-row").length === 0 && (t.innerHTML = "<div class=\"wf-vb-empty\" style=\"text-align:center; font-size:11px; color:var(--wf-text-muted); padding:8px;\">No variables defined yet.</div>"), this._emitChange();
+		});
+	}
 	_fieldHTML(e, t, n, r, i = !1, a = null) {
 		let o = n === void 0 ? t.default ?? "" : n, s = a || `wf-field-${e}`, c = i ? `data-sub-field="${e}"` : `data-field="${e}"`, l = t.type === "text" || t.type === "textarea" || t.type === "code" || t.type === "number" || t.type === "password" || t.type === "file" ? this._variablePickerHTML(s) : "", u = t.help ? `<span class="wf-help-icon" data-help-key="${e}" title="Get help">?</span>` : "", d = t.description && t.type !== "list" && t.type !== "custom_html" ? `<div class="wf-field-description" style="font-size:11px; color:#94a3b8; margin-top:4px; line-height:1.4;">${t.description}</div>` : "", f = i, p = (n) => `
       <div class="wf-config-field" style="position: relative;">
@@ -1670,12 +1799,37 @@ var e = class {
             </button>
           </div>
         `);
+			case "variable_builder":
+				let l = Array.isArray(o) ? o : [];
+				return p(`
+          <div class="wf-variable-builder" id="${s}" ${c}>
+            <div class="wf-vb-rows" style="display:flex; flex-direction:column; gap:8px;">
+              ${l.map((e, t) => `
+                <div class="wf-vb-row" data-index="${t}" style="display:flex; gap:6px; align-items:center; background:rgba(255,255,255,0.03); border:1px solid var(--wf-border); padding:6px; border-radius:6px;">
+                  <input type="text" class="wf-input wf-vb-name" placeholder="Var name..." value="${e.name || ""}" style="flex:2; font-size:12px;">
+                  <select class="wf-input wf-vb-type" style="flex:1.2; font-size:12px; padding:0 4px; height: 32px; background: var(--wf-bg-input); border: 1px solid var(--wf-border); border-radius: 4px; color: var(--wf-text);">
+                    <option value="string" ${e.type === "string" ? "selected" : ""}>String</option>
+                    <option value="number" ${e.type === "number" ? "selected" : ""}>Number</option>
+                    <option value="boolean" ${e.type === "boolean" ? "selected" : ""}>Boolean</option>
+                  </select>
+                  <input type="text" class="wf-input wf-vb-value" placeholder="Default..." value="${e.defaultValue === void 0 ? "" : e.defaultValue}" style="flex:2; font-size:12px;">
+                  <button type="button" class="wf-vb-remove-btn" style="background:transparent; border:none; color:#ef4444; font-size:14px; cursor:pointer; padding:0 4px;">✕</button>
+                </div>
+              `).join("")}
+              ${l.length === 0 ? "\n                <div class=\"wf-vb-empty\" style=\"text-align:center; font-size:11px; color:var(--wf-text-muted); padding:8px;\">No variables defined yet.</div>\n              " : ""}
+            </div>
+            <button type="button" class="wf-vb-add-btn" style="margin-top:8px; width:100%; background:rgba(99,102,241,0.15); border:1px dashed rgba(99,102,241,0.4); color:#a5b4fc; padding:6px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:500; display:flex; align-items:center; justify-content:center; gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Variable
+            </button>
+          </div>
+        `);
 			case "router_conditions":
-				let l = r.routes || [], u = o && typeof o == "object" ? o : {};
+				let u = r.routes || [], d = o && typeof o == "object" ? o : {};
 				return p(`
           <div class="wf-router-conditions" id="${s}" ${c}>
-            ${l.map((e) => {
-					let t = u[e] || {
+            ${u.map((e) => {
+					let t = d[e] || {
 						logicalOperator: "AND",
 						rules: []
 					}, n = Array.isArray(t.rules) ? t.rules : [], r = t.logicalOperator || "AND";
@@ -1707,11 +1861,11 @@ var e = class {
           </div>
         `);
 			case "list":
-				let d = Array.isArray(o) ? o : [], f = this._variablePickerHTML(`${s}-add-input`);
+				let f = Array.isArray(o) ? o : [], m = this._variablePickerHTML(`${s}-add-input`);
 				return p(`
           <div class="wf-config-list" id="${s}" ${c}>
             <div class="wf-config-list-items">
-              ${d.map((e) => `
+              ${f.map((e) => `
                 <div class="wf-config-list-item">
                   <span class="wf-config-list-item-text">${e}</span>
                   <button class="wf-config-list-remove">✕</button>
@@ -1720,7 +1874,7 @@ var e = class {
             </div>
             <div class="wf-config-list-add" style="display: flex; align-items: center; gap: 6px;">
               <input type="text" id="${s}-add-input" class="wf-input" placeholder="Enter value then click Add." style="flex: 1;">
-              ${f}
+              ${m}
               <button class="wf-config-list-add-btn" type="button">Add</button>
             </div>
             ${t.description ? `<div class="wf-config-list-description">${t.description}</div>` : ""}
@@ -1946,6 +2100,18 @@ var e = class {
 				};
 				return;
 			}
+			if (i.type === "variable_builder") {
+				let t = [];
+				n.querySelectorAll(".wf-vb-row").forEach((e) => {
+					let n = e.querySelector(".wf-vb-name").value.trim(), r = e.querySelector(".wf-vb-type").value, i = e.querySelector(".wf-vb-value").value;
+					n && t.push({
+						name: n,
+						type: r,
+						defaultValue: i
+					});
+				}), e[r] = t;
+				return;
+			}
 			if (i.type === "router_conditions") {
 				let t = {};
 				n.querySelectorAll(".wf-router-route-card").forEach((e) => {
@@ -2096,7 +2262,7 @@ var e = class {
 		this.workflow = e, this._bindWorkflowEvents();
 	}
 	_buildShell() {
-		let e = this.options.readOnly === !0, t = !e && this.options.showRun !== !1, n = !e && this.options.showCost !== !1, r = !e && this.options.showExport !== !1, i = !e && this.options.showImport !== !1, a = !e && this.options.showClear !== !1, o = this.options.buttons || [], s = o.map((e) => `
+		let e = this.options.readOnly === !0, t = this.options.showDefaultButtons !== !1, n = !e && (this.options.showRun === !0 || t && this.options.showRun !== !1), r = !e && (this.options.showCost === !0 || t && this.options.showCost !== !1), i = !e && (this.options.showExport === !0 || t && this.options.showExport !== !1), a = !e && (this.options.showImport === !0 || t && this.options.showImport !== !1), o = !e && (this.options.showClear === !0 || t && this.options.showClear !== !1), s = this.options.buttons || [], c = s.map((e) => `
       <button class="wf-btn ${e.class || "wf-btn--ghost"}" data-custom-action="${e.name}" title="${e.title || e.label}" style="display:flex; align-items:center; gap:6px;">
         ${e.icon || ""}
         <span>${e.label}</span>
@@ -2118,12 +2284,12 @@ var e = class {
         </div>
         <div class="wf-toolbar-divider"></div>
         <div class="wf-toolbar-group">
-          ${a ? "\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"clear\"     title=\"Clear canvas\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg>\n          </button>\n          " : ""}
-          ${r ? "\n          <button class=\"wf-btn wf-btn--primary\" data-action=\"export\" title=\"Export JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>\n            Export\n          </button>\n          " : ""}
-          ${i ? "\n          <button class=\"wf-btn wf-btn--ghost\"   data-action=\"import\" title=\"Import JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>\n            Import\n          </button>\n          " : ""}
-          ${t ? "\n          <button class=\"wf-btn wf-btn--success\" data-action=\"run-flow\" title=\"Run Flow\" style=\"background:#10b981; color:#fff; border:none; display:flex; align-items:center; gap:6px;\">\n            <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>\n            Run Flow\n          </button>\n          " : ""}
-          ${n ? "\n          <button class=\"wf-btn wf-btn--ghost\" data-action=\"cost-settings\" title=\"Usage & Cost Settings\" style=\"display:flex; align-items:center; gap:6px;\">\n            <svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"23\"/><path d=\"M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"/></svg>\n            Usage & Cost\n          </button>\n          " : ""}
-          ${s}
+          ${o ? "\n          <button class=\"wf-btn wf-btn--icon\" data-action=\"clear\"     title=\"Clear canvas\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg>\n          </button>\n          " : ""}
+          ${i ? "\n          <button class=\"wf-btn wf-btn--primary\" data-action=\"export\" title=\"Export JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/></svg>\n            Export\n          </button>\n          " : ""}
+          ${a ? "\n          <button class=\"wf-btn wf-btn--ghost\"   data-action=\"import\" title=\"Import JSON\">\n            <svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"/></svg>\n            Import\n          </button>\n          " : ""}
+          ${n ? "\n          <button class=\"wf-btn wf-btn--success\" data-action=\"run-flow\" title=\"Run Flow\" style=\"background:#10b981; color:#fff; border:none; display:flex; align-items:center; gap:6px;\">\n            <svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>\n            Run Flow\n          </button>\n          " : ""}
+          ${r ? "\n          <button class=\"wf-btn wf-btn--ghost\" data-action=\"cost-settings\" title=\"Usage & Cost Settings\" style=\"display:flex; align-items:center; gap:6px;\">\n            <svg viewBox=\"0 0 24 24\" width=\"15\" height=\"15\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"23\"/><path d=\"M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"/></svg>\n            Usage & Cost\n          </button>\n          " : ""}
+          ${c}
         </div>
         <div class="wf-toolbar-divider"></div>
         <div class="wf-toolbar-group wf-toolbar-group--info">
@@ -2140,7 +2306,7 @@ var e = class {
 			e.addEventListener("click", () => this._handleAction(e.dataset.action));
 		}), this.container.querySelectorAll("[data-custom-action]").forEach((e) => {
 			e.addEventListener("click", () => {
-				let t = e.dataset.customAction, n = o.find((e) => e.name === t);
+				let t = e.dataset.customAction, n = s.find((e) => e.name === t);
 				n && typeof n.onClick == "function" && n.onClick(this.workflow);
 			});
 		}), this.importInput = this.container.querySelector("#wf-import-input"), this.importInput.addEventListener("change", (e) => this._handleImport(e));
@@ -2458,7 +2624,14 @@ function h(o = {}) {
 	M && v && M.addEventListener("click", () => v());
 	let N = new e(), P = new t(A, h), F = new r(N), I = new n(P, N, F, _), L = new i(P, N, I, _), R, z, B;
 	_ || (R = new s(k, T, V), z = new l(j)), D && (B = new u(O, {
-		...o.toolbar,
+		showRun: o.showRun === void 0 ? o.toolbar?.showRun : o.showRun,
+		showCost: o.showCost === void 0 ? o.toolbar?.showCost : o.showCost,
+		showExport: o.showExport === void 0 ? o.toolbar?.showExport : o.showExport,
+		showImport: o.showImport === void 0 ? o.toolbar?.showImport : o.showImport,
+		showClear: o.showClear === void 0 ? o.toolbar?.showClear : o.showClear,
+		showDefaultButtons: o.showDefaultButtons === void 0 ? o.toolbar?.showDefaultButtons : o.showDefaultButtons,
+		buttons: o.buttons || o.toolbar?.buttons,
+		...typeof o.toolbar == "object" ? o.toolbar : {},
 		readOnly: _
 	})), g && new d(A, P, N), A.addEventListener("dragover", (e) => {
 		e.dataTransfer.types.includes("wf-node-type") && (e.preventDefault(), e.dataTransfer.dropEffect = "copy");
@@ -2617,7 +2790,7 @@ function h(o = {}) {
 		fitToView() {
 			let e = Array.from(N.positions.values());
 			if (!e.length) return;
-			let t = e.map((e) => e.x), n = e.map((e) => e.y), r = Math.min(...t), i = Math.max(...t) + 200, a = Math.min(...n), o = Math.max(...n) + 120, s = i - r || 400, c = o - a || 300, l = P.container.clientWidth - 60, u = P.container.clientHeight - 60, d = Math.min(3, Math.max(.2, Math.min(l / s, u / c)));
+			let t = e.map((e) => e.x), n = e.map((e) => e.y), r = Math.min(...t), i = Math.max(...t) + 200, a = Math.min(...n), o = Math.max(...n) + 120, s = i - r || 400, c = o - a || 300, l = P.container.clientWidth - 60, u = P.container.clientHeight - 60, d = Math.min(.9, Math.max(.2, Math.min(l / s, u / c)));
 			P.transform.scale = d, P.transform.x = (l - s * d) / 2 + 30 - r * d, P.transform.y = (u - c * d) / 2 + 30 - a * d, P._applyTransform();
 		},
 		on(e, t) {

@@ -38,12 +38,44 @@ class FlowOrchestrator {
     const nodes = graph.nodes || [];
     const edges = graph.edges || [];
 
+    // Extract variables from start node
+    const startNode = nodes.find(n => n.type === 'start');
+    const startVariables = startNode?.config?.variables || [];
+    const defaultData = {};
+    for (const v of startVariables) {
+      if (v.name) {
+        let val = v.defaultValue;
+        if (v.type === 'number' && val !== undefined && val !== '') {
+          val = Number(val);
+        } else if (v.type === 'boolean') {
+          val = (val === true || val === 'true');
+        }
+        defaultData[v.name] = val;
+      }
+    }
+
+    const runtimeData = (globalVariables && typeof globalVariables === 'object')
+      ? {
+          ...(globalVariables.data || {}),
+          ...(globalVariables.submissionData || {}),
+          ...globalVariables
+        }
+      : {};
+
+    const mergedData = { ...defaultData, ...runtimeData };
+
+    const finalGlobalVars = {
+      ...globalVariables,
+      data: mergedData,
+      ...mergedData
+    };
+
     // 1. Store the graph metadata in Redis
     const graphKey = `run:${runId}:graph`;
     await this.redis.set(graphKey, JSON.stringify({
       nodes,
       edges,
-      globalVariables,
+      globalVariables: finalGlobalVars,
       flowId,
       projectId
     }));

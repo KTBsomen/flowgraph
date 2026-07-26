@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowGraph — Custom Toolbar & Action Controls</title>
+  <link rel="stylesheet" href="src/styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --wf-font-sans: 'Outfit', sans-serif;
+      --wf-font-mono: 'JetBrains Mono', monospace;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #090b10;
+      color: #e2e8f0;
+      font-family: var(--wf-font-sans);
+    }
+
+    #app {
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Toast notification styling */
+    .wf-toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .wf-toast {
+      background: rgba(19, 22, 32, 0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .wf-toast--success {
+      border-color: rgba(16, 185, 129, 0.3);
+      box-shadow: 0 12px 40px rgba(16, 185, 129, 0.1);
+    }
+
+    .wf-toast--info {
+      border-color: rgba(99, 102, 241, 0.3);
+      box-shadow: 0 12px 40px rgba(99, 102, 241, 0.1);
+    }
+
+    /* Bottom Info overlay */
+    .demo-instructions {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      background: rgba(15, 18, 28, 0.85);
+      backdrop-filter: blur(12px);
+      padding: 16px 22px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #94a3b8;
+      max-width: 380px;
+      font-size: 13px;
+      line-height: 1.6;
+      pointer-events: none;
+      z-index: 1000;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .demo-instructions h4 {
+      margin: 0 0 6px 0;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .demo-instructions code {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: var(--wf-font-mono);
+      color: #818cf8;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <div class="wf-toast-container" id="wf-toasts"></div>
+
+  <div class="demo-instructions">
+    <h4>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      Custom Toolbar Demo
+    </h4>
+    This page demonstrates the <code>showDefaultButtons: false</code> configuration. The default actions are hidden, and custom buttons are injected with event listeners bound to the workflow instance.
+  </div>
+
+  <script type="module">
+    import { createWorkflow } from './src/index.js';
+
+    // Toast notification manager
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('wf-toasts');
+      const el = document.createElement('div');
+      el.className = `wf-toast wf-toast--${type}`;
+      el.innerHTML = msg;
+      container.appendChild(el);
+      
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(8px)';
+        el.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+        setTimeout(() => el.remove(), 300);
+      }, 3500);
+    }
+
+    // Initialize workflow with custom toolbar buttons and hidden default controls
+    const wf = createWorkflow({
+      container: document.getElementById('app'),
+      minimap: true,
+      host: 'http://localhost:3000',
+      connectionId: 'user_account_123',
+      loadActivepiecesPieces: true,
+      canvasOptions: { snapToGrid: true, gridSize: 20 },
+      
+      // Override default toolbar buttons completely
+      showDefaultButtons: false,
+      
+      // Add custom buttons
+      buttons: [
+        {
+          name: 'save-workflow',
+          label: 'Save Configuration',
+          class: 'wf-btn--primary',
+          icon: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`,
+          onClick: (workflow) => {
+            const data = workflow.exportJSON();
+            console.log('Saved Workflow Config:', data);
+            showToast('💾 <b>Workflow Saved Successfully!</b> Check developer console for JSON.', 'success');
+          }
+        },
+        {
+          name: 'validate-workflow',
+          label: 'Validate Flow',
+          class: 'wf-btn--ghost',
+          icon: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`,
+          onClick: (workflow) => {
+            const hasCycle = workflow.hasCycle();
+            const nodeCount = Array.from(workflow.state.nodes.keys()).length;
+            if (hasCycle) {
+              showToast('⚠️ <b>Validation Failed!</b> The workflow contains feedback loops/cycles.', 'error');
+            } else {
+              showToast(`✓ <b>Validation Passed!</b> Graph is acyclic with ${nodeCount} active nodes.`, 'success');
+            }
+          }
+        },
+        {
+          name: 'deploy-workflow',
+          label: 'Deploy Live',
+          class: 'wf-btn--success',
+          icon: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+          onClick: (workflow) => {
+            showToast('🚀 <b>Deploying Workflow...</b> Starting production tasks.', 'info');
+            setTimeout(() => {
+              showToast('✨ <b>Workflow Deployed Successfully!</b>', 'success');
+            }, 1200);
+          }
+        }
+      ]
+    });
+
+    // Load initial workflow template
+    setTimeout(() => {
+      const s = wf.addNode('start', { x: 120, y: 200 });
+      const a = wf.addNode('action', { x: 380, y: 120 });
+      const c = wf.addNode('condition', { x: 380, y: 320 });
+      const e = wf.addNode('end', { x: 740, y: 220 });
+
+      wf.addEdge(s, 'out', a, 'in');
+      wf.addEdge(a, 'out', e, 'in');
+      wf.fitToView();
+    }, 150);
+
+    // Expose to window for testing/debugging
+    window.wf = wf;
+  </script>
+</body>
+
+</html>

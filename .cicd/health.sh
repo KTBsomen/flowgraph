@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 # .cicd/health.sh - Script to perform health checks on the running services
+# Available env vars from orchestrator:
+#   CICD_SERVICE_NAME  - name of the service being checked
+#   CICD_PORT          - the port configured for this service
+#   CICD_SERVICE_DIR   - the service deployment directory
 
 set -Eeuo pipefail
 
-PORT=${1:-3000}
+# Skip health check for services that don't run an HTTP server
+if [ "${CICD_SERVICE_NAME:-}" = "flowgraph-worker" ]; then
+    echo "✅ Health check skipped for worker (no HTTP endpoint)"
+    exit 0
+fi
+
+PORT=${CICD_PORT:-${1:-3000}}
 URL="http://localhost:${PORT}/api/usage/pricing"
 
 echo "=== Running Health Check on Port ${PORT} ==="
@@ -27,3 +37,4 @@ else
     echo "❌ Health check FAILED! Could not connect to the port."
     exit 1
 fi
+

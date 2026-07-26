@@ -21,6 +21,9 @@
  *   USAGE_TRACKER_URL     — Where to POST completion reports (default: http://localhost:3000)
  *   FILES_ROOT            — Directory for file storage (default: data/files)
  */
+// Global expr-eval security hardening
+require('../security-patch');
+
 const dns = require("node:dns");
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 

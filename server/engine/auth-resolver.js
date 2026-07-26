@@ -92,6 +92,10 @@ class AuthResolver {
       throw new Error(`No credentials saved for "${pieceName}". Please connect your account in the node's authentication section.`);
     }
 
+    if (conn.refresh_failed) {
+      throw new Error(`Credentials for "${pieceName}" have expired and token refresh failed. Please reconnect your account.`);
+    }
+
     // Auto-refresh expired OAuth2 tokens
     if (conn.expires_at && Date.now() >= conn.expires_at - 60000) {
       await this._refreshToken(conn, key, handler);
@@ -124,11 +128,16 @@ class AuthResolver {
         client_secret: conn.client_secret || ''
       });
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+
       const res = await fetch(oauthAuth.tokenUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString()
+        body: body.toString(),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -139,10 +148,20 @@ class AuthResolver {
       if (data.expires_in) {
         conn.expires_at = Date.now() + (data.expires_in * 1000);
       }
+      delete conn.refresh_failed;
+      delete conn.refresh_error;
 
       await this.saveConnection(key, conn);
       console.log(`[AuthResolver] Refreshed token for connection "${key}"`);
     } catch (err) {
+      // Mark as failed so we don't try again until they reconnect
+      conn.refresh_failed = true;
+      conn.refresh_error = err.message;
+      try {
+        await this.saveConnection(key, conn);
+      } catch (saveErr) {
+        console.error('[AuthResolver] Failed to flag invalid connection:', saveErr.message);
+      }
       throw new Error(`Token refresh failed: ${err.message}. Please reconnect your account.`);
     }
   }

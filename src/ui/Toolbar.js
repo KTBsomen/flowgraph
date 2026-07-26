@@ -18,11 +18,12 @@ export class Toolbar {
 
   _buildShell() {
     const isReadOnly = this.options.readOnly === true;
-    const showRun = !isReadOnly && this.options.showRun !== false;
-    const showCost = !isReadOnly && this.options.showCost !== false;
-    const showExport = !isReadOnly && this.options.showExport !== false;
-    const showImport = !isReadOnly && this.options.showImport !== false;
-    const showClear = !isReadOnly && this.options.showClear !== false;
+    const showDefaults = this.options.showDefaultButtons !== false;
+    const showRun = !isReadOnly && (this.options.showRun === true || (showDefaults && this.options.showRun !== false));
+    const showCost = !isReadOnly && (this.options.showCost === true || (showDefaults && this.options.showCost !== false));
+    const showExport = !isReadOnly && (this.options.showExport === true || (showDefaults && this.options.showExport !== false));
+    const showImport = !isReadOnly && (this.options.showImport === true || (showDefaults && this.options.showImport !== false));
+    const showClear = !isReadOnly && (this.options.showClear === true || (showDefaults && this.options.showClear !== false));
 
     // Custom buttons (can be rendered in both read-only or edit mode)
     const customButtons = this.options.buttons || [];

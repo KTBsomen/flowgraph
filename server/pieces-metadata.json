@@ -2,7 +2,7 @@
   {
     "name": "google_sheets",
     "displayName": "Google Sheets",
-    "description": "",
+    "description": "Create, edit, and collaborate on spreadsheets online",
     "logoUrl": "https://cdn.activepieces.com/pieces/google-sheets.png",
     "auth": {
       "type": "OAUTH2",
@@ -10,33 +10,41 @@
       "displayName": "Connection",
       "scope": [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive.readonly"
+        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/drive"
       ],
       "authUrl": "https://accounts.google.com/o/oauth2/auth"
     },
     "actions": {
       "insert_row": {
-        "displayName": "Insert Row",
-        "description": "Append a row of values to an existing sheet",
+        "displayName": "Add Row",
+        "description": "Add a new row of data to a specific spreadsheet.",
         "properties": {
-          "spreadsheet_id": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Spreadsheet",
-            "description": "",
-            "required": true
-          },
-          "include_team_drives": {
+          "includeTeamDrives": {
             "type": "CHECKBOX",
-            "displayName": "Include Team Drive Sheets",
-            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
             "required": false,
             "defaultValue": false
           },
-          "sheet_id": {
+          "spreadsheetId": {
             "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Sheet",
-            "description": "",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
             "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "first_row_headers": {
+            "type": "CHECKBOX",
+            "displayName": "First Row Contains Headers ?",
+            "description": "",
+            "required": true,
+            "defaultValue": false
           },
           "as_string": {
             "type": "CHECKBOX",
@@ -44,73 +52,174 @@
             "description": "Inserted values that are dates and formulas will be entered strings and have no effect",
             "required": false
           },
-          "first_row_headers": {
-            "type": "CHECKBOX",
-            "displayName": "Are the First row Headers?",
-            "description": "If the first row is headers",
-            "required": true,
-            "defaultValue": false
-          },
           "values": {
             "type": "DYNAMIC",
             "displayName": "Values",
-            "description": "The values to insert",
+            "description": "The values to add",
             "required": true
           }
         }
       },
-      "delete_row": {
-        "displayName": "Delete Row",
-        "description": "Delete a row on an existing sheet you have access to",
+      "insert-row-at-top": {
+        "displayName": "Add Row at Top",
+        "description": "Inserts a new row at the top of a worksheet, just below the header row.",
         "properties": {
-          "spreadsheet_id": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Spreadsheet",
-            "description": "",
-            "required": true
-          },
-          "include_team_drives": {
+          "includeTeamDrives": {
             "type": "CHECKBOX",
-            "displayName": "Include Team Drive Sheets",
-            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
             "required": false,
             "defaultValue": false
           },
-          "sheet_id": {
+          "spreadsheetId": {
             "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Sheet",
-            "description": "",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
             "required": true
           },
-          "row_id": {
-            "type": "NUMBER",
-            "displayName": "Row Number",
-            "description": "The row number to remove",
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
             "required": true
+          },
+          "first_row_headers": {
+            "type": "CHECKBOX",
+            "displayName": "First Row Contains Headers ?",
+            "description": "",
+            "required": true,
+            "defaultValue": false
+          },
+          "as_string": {
+            "type": "CHECKBOX",
+            "displayName": "As String",
+            "description": "Inserted values that are dates and formulas will be entered as strings and have no effect.",
+            "required": false
+          },
+          "insertAfterRow": {
+            "type": "NUMBER",
+            "displayName": "Insert After Row",
+            "description": "The row above which the new row will be inserted. Defaults to 1 (insert right under row 1, which is the header in most sheets).",
+            "required": false,
+            "defaultValue": 1
+          },
+          "values": {
+            "type": "DYNAMIC",
+            "displayName": "Values",
+            "description": "The values to add",
+            "required": true
+          }
+        }
+      },
+      "google-sheets-insert-multiple-rows": {
+        "displayName": "Add Multiple Rows",
+        "description": "Add multiple rows of data at once to a specific spreadsheet.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "input_type": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Rows Data Format",
+            "description": "Select the format of the input values to be added into the worksheet.",
+            "required": true,
+            "defaultValue": "column_names",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "value": "csv",
+                  "label": "CSV"
+                },
+                {
+                  "value": "json",
+                  "label": "JSON"
+                },
+                {
+                  "value": "column_names",
+                  "label": "Column Names"
+                }
+              ]
+            }
+          },
+          "values": {
+            "type": "DYNAMIC",
+            "displayName": "Values",
+            "description": "The values to add.",
+            "required": true
+          },
+          "overwrite": {
+            "type": "CHECKBOX",
+            "displayName": "Overwrite Existing Data?",
+            "description": "Enable this option to replace all existing data in the sheet with new data from your input. This will clear any extra rows beyond the updated range.",
+            "required": false,
+            "defaultValue": false
+          },
+          "check_for_duplicate": {
+            "type": "CHECKBOX",
+            "displayName": "Avoid Duplicates?",
+            "description": "Enable this option to check for duplicate values before inserting data into the sheet. Only unique rows will be added based on the selected column.",
+            "required": false,
+            "defaultValue": false
+          },
+          "check_for_duplicate_column": {
+            "type": "DYNAMIC",
+            "displayName": "Duplicate Value Column",
+            "description": "The column to check for duplicate values.",
+            "required": false
+          },
+          "as_string": {
+            "type": "CHECKBOX",
+            "displayName": "As String",
+            "description": "Inserted values that are dates and formulas will be entered as strings and have no effect",
+            "required": false
+          },
+          "headerRow": {
+            "type": "NUMBER",
+            "displayName": "Header Row Number",
+            "description": "Enter the row number where your column headers are located (usually row 1).",
+            "required": true,
+            "defaultValue": 1
           }
         }
       },
       "update_row": {
         "displayName": "Update Row",
-        "description": "Overwrite values in an existing row",
+        "description": "Update the data in an existing row.",
         "properties": {
-          "spreadsheet_id": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Spreadsheet",
-            "description": "",
-            "required": true
-          },
-          "include_team_drives": {
+          "includeTeamDrives": {
             "type": "CHECKBOX",
-            "displayName": "Include Team Drive Sheets",
-            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
             "required": false,
             "defaultValue": false
           },
-          "sheet_id": {
+          "spreadsheetId": {
             "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Sheet",
-            "description": "",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
             "required": true
           },
           "row_id": {
@@ -121,161 +230,686 @@
           },
           "first_row_headers": {
             "type": "CHECKBOX",
-            "displayName": "Are the First row Headers?",
-            "description": "If the first row is headers",
+            "displayName": "First Row Contains Headers ?",
+            "description": "",
             "required": true,
             "defaultValue": false
           },
           "values": {
             "type": "DYNAMIC",
             "displayName": "Values",
-            "description": "The values to insert",
+            "description": "The values to add",
             "required": true
+          }
+        }
+      },
+      "update-multiple-rows": {
+        "displayName": "Update Multiple Rows",
+        "description": "Updates multiple rows in a specific spreadsheet.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "values": {
+            "type": "DYNAMIC",
+            "displayName": "Values",
+            "description": "The values to update.",
+            "required": true
+          },
+          "as_string": {
+            "type": "CHECKBOX",
+            "displayName": "As String",
+            "description": "Inserted values that are dates and formulas will be entered as strings and have no effect",
+            "required": false
+          },
+          "headerRow": {
+            "type": "NUMBER",
+            "displayName": "Header Row",
+            "description": "Which row contains the headers?",
+            "required": true,
+            "defaultValue": 1
+          }
+        }
+      },
+      "delete_row": {
+        "displayName": "Delete Row",
+        "description": "Delete a specific row from the selected sheet.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "rowId": {
+            "type": "NUMBER",
+            "displayName": "Row Number",
+            "description": "The number of the row you want to delete.",
+            "required": true
+          }
+        }
+      },
+      "delete-multiple-rows": {
+        "displayName": "Delete Multiple Rows",
+        "description": "Deletes a contiguous range of rows, or a list of specific row numbers. Row numbers are 1-based.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "mode": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Mode",
+            "description": "Choose whether to delete a contiguous range (start/end) or a comma-separated list of row numbers.",
+            "required": true,
+            "defaultValue": "range",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "Contiguous Range",
+                  "value": "range"
+                },
+                {
+                  "label": "Specific Row Numbers",
+                  "value": "list"
+                }
+              ]
+            }
+          },
+          "startingRow": {
+            "type": "NUMBER",
+            "displayName": "Starting Row",
+            "description": "First row to delete (used in \"Contiguous Range\" mode).",
+            "required": false
+          },
+          "endingRow": {
+            "type": "NUMBER",
+            "displayName": "Ending Row",
+            "description": "Last row to delete (used in \"Contiguous Range\" mode).",
+            "required": false
+          },
+          "rowNumbers": {
+            "type": "SHORT_TEXT",
+            "displayName": "Row Numbers",
+            "description": "Comma-separated row numbers to delete (used in \"Specific Row Numbers\" mode), e.g. \"3, 5, 8\".",
+            "required": false
           }
         }
       },
       "find_rows": {
         "displayName": "Find Rows",
-        "description": "Find or get rows in a Google Sheet by column name and search value",
+        "description": "Look up rows in a worksheet based on a column value.",
         "properties": {
-          "spreadsheet_id": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Spreadsheet",
-            "description": "",
-            "required": true
-          },
-          "include_team_drives": {
+          "includeTeamDrives": {
             "type": "CHECKBOX",
-            "displayName": "Include Team Drive Sheets",
-            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
             "required": false,
             "defaultValue": false
           },
-          "sheet_id": {
+          "spreadsheetId": {
             "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Sheet",
-            "description": "",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
             "required": true
           },
           "columnName": {
             "type": "DYNAMIC_DROPDOWN",
-            "displayName": "The name of the column to search in",
-            "description": "Column Name",
+            "displayName": "Column Name",
+            "description": "The name of the column to search in",
             "required": true
           },
           "searchValue": {
             "type": "SHORT_TEXT",
             "displayName": "Search Value",
-            "description": "The value to search for in the specified column. If left empty, all rows will be returned.",
+            "description": "The value to look for in the selected column. Leave empty to return all rows.",
             "required": false
           },
           "matchCase": {
             "type": "CHECKBOX",
-            "displayName": "Exact match",
-            "description": "Whether to choose the rows with exact match or choose the rows that contain the search value",
+            "displayName": "Exact Match",
+            "description": "Only return rows where the cell value exactly matches the search value.",
             "required": true,
             "defaultValue": false
           },
           "startingRow": {
             "type": "NUMBER",
             "displayName": "Starting Row",
-            "description": "The row number to start searching from",
+            "description": "Start searching from this row number.",
             "required": false
           },
           "numberOfRows": {
             "type": "NUMBER",
             "displayName": "Number of Rows",
-            "description": "The number of rows to search ( the default is 1 if not specified )",
+            "description": "How many rows to return. Defaults to 1 if not specified.",
             "required": false,
             "defaultValue": 1
+          },
+          "headerRow": {
+            "type": "NUMBER",
+            "displayName": "Header Row",
+            "description": "The row number that contains the column names.",
+            "required": true,
+            "defaultValue": 1
+          },
+          "useHeaderNames": {
+            "type": "CHECKBOX",
+            "displayName": "Use Column Names",
+            "description": "Use column names as keys instead of A, B, C.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "find-or-create-row": {
+        "displayName": "Find or Create Row",
+        "description": "Look up a row by column value; if no match is found, create a new row with the provided values.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "columnName": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Column Name",
+            "description": "The name of the column to search in",
+            "required": true
+          },
+          "searchValue": {
+            "type": "SHORT_TEXT",
+            "displayName": "Search Value",
+            "description": "The value to look for in the selected column.",
+            "required": true
+          },
+          "matchCase": {
+            "type": "CHECKBOX",
+            "displayName": "Exact Match",
+            "description": "Only treat exact matches as found.",
+            "required": true,
+            "defaultValue": false
+          },
+          "headerRow": {
+            "type": "NUMBER",
+            "displayName": "Header Row",
+            "description": "The row that contains the column names.",
+            "required": true,
+            "defaultValue": 1
+          },
+          "useHeaderNames": {
+            "type": "CHECKBOX",
+            "displayName": "Use Column Names",
+            "description": "Return found rows with header names as keys instead of A, B, C.",
+            "required": false,
+            "defaultValue": false
+          },
+          "first_row_headers": {
+            "type": "CHECKBOX",
+            "displayName": "First Row Contains Headers ?",
+            "description": "",
+            "required": true,
+            "defaultValue": false
+          },
+          "as_string": {
+            "type": "CHECKBOX",
+            "displayName": "As String",
+            "description": "Inserted values that are dates and formulas will be entered as strings and have no effect.",
+            "required": false
+          },
+          "values": {
+            "type": "DYNAMIC",
+            "displayName": "Values",
+            "description": "The values to add",
+            "required": true
+          }
+        }
+      },
+      "create-spreadsheet": {
+        "displayName": "Create Spreadsheet",
+        "description": "Creates a blank spreadsheet.",
+        "properties": {
+          "title": {
+            "type": "SHORT_TEXT",
+            "displayName": "Title",
+            "description": "The title of the new spreadsheet.",
+            "required": true
+          },
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "folder": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Parent Folder",
+            "description": "The folder to create the worksheet in.By default, the new worksheet is created in the root folder of drive.",
+            "required": false
+          }
+        }
+      },
+      "create-worksheet": {
+        "displayName": "Create Worksheet",
+        "description": "Create a new blank worksheet with a title.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "title": {
+            "type": "SHORT_TEXT",
+            "displayName": "Title",
+            "description": "The title of the new worksheet.",
+            "required": true
+          },
+          "headers": {
+            "type": "ARRAY",
+            "displayName": "Headers",
+            "description": "",
+            "required": false
+          }
+        }
+      },
+      "find-or-create-worksheet": {
+        "displayName": "Find or Create Worksheet",
+        "description": "Look up a worksheet by title in a spreadsheet; if not found, create it with optional headers.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The spreadsheet to look in.",
+            "required": true
+          },
+          "title": {
+            "type": "SHORT_TEXT",
+            "displayName": "Worksheet Title",
+            "description": "The title to look up. The match is exact and case-sensitive.",
+            "required": true
+          },
+          "headers": {
+            "type": "ARRAY",
+            "displayName": "Headers (Only Used When Creating)",
+            "description": "Column headers to add to the new worksheet if it has to be created.",
+            "required": false
           }
         }
       },
       "clear_sheet": {
         "displayName": "Clear Sheet",
-        "description": "Clears all rows on an existing sheet",
+        "description": "Clears all rows on an existing sheet.",
         "properties": {
-          "spreadsheet_id": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Spreadsheet",
-            "description": "",
-            "required": true
-          },
-          "include_team_drives": {
+          "includeTeamDrives": {
             "type": "CHECKBOX",
-            "displayName": "Include Team Drive Sheets",
-            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
             "required": false,
             "defaultValue": false
           },
-          "sheet_id": {
+          "spreadsheetId": {
             "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Sheet",
-            "description": "",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
             "required": true
           },
           "is_first_row_headers": {
             "type": "CHECKBOX",
-            "displayName": "Is First row Headers?",
-            "description": "If the first row is headers",
+            "displayName": "First Row Contains Headers ?",
+            "description": "",
             "required": true,
-            "defaultValue": true
+            "defaultValue": false
+          },
+          "headerRow": {
+            "type": "NUMBER",
+            "displayName": "Header Row Number",
+            "description": "Enter the row number where your column headers are located (usually row 1).",
+            "required": true,
+            "defaultValue": 1
+          }
+        }
+      },
+      "clear-rows": {
+        "displayName": "Clear Row(s)",
+        "description": "Clears the contents of one or more rows without removing the rows themselves. Useful when you want to keep formatting and references stable.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "startingRow": {
+            "type": "NUMBER",
+            "displayName": "Starting Row",
+            "description": "The first row to clear.",
+            "required": true,
+            "defaultValue": 2
+          },
+          "endingRow": {
+            "type": "NUMBER",
+            "displayName": "Ending Row",
+            "description": "The last row to clear. Leave empty to only clear the starting row.",
+            "required": false
+          }
+        }
+      },
+      "delete-worksheet": {
+        "displayName": "Delete Worksheet",
+        "description": "Permanently delete a specific worksheet.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to delete.",
+            "required": true
+          }
+        }
+      },
+      "rename-worksheet": {
+        "displayName": "Rename Worksheet",
+        "description": "Rename specific worksheet.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to rename.",
+            "required": true
+          },
+          "newName": {
+            "type": "SHORT_TEXT",
+            "displayName": "New Sheet Name",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "format-row": {
+        "displayName": "Format Row(s)",
+        "description": "Format one or multiple rows in specific spreadsheet.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "startingRow": {
+            "type": "NUMBER",
+            "displayName": "Starting row",
+            "description": "The first row number where formatting should begin.",
+            "required": true
+          },
+          "endingRow": {
+            "type": "NUMBER",
+            "displayName": "Ending row",
+            "description": "The last row number where formatting should stop (leave empty to format only the starting row).",
+            "required": false
+          },
+          "bgColor": {
+            "type": "SHORT_TEXT",
+            "displayName": "Background Color",
+            "description": "Provide a HEX color code (example: #FFD966)",
+            "required": false
+          },
+          "textColor": {
+            "type": "SHORT_TEXT",
+            "displayName": "Text Color",
+            "description": "Provide a HEX color code (example: #FFD966)",
+            "required": false
+          },
+          "bold": {
+            "type": "CHECKBOX",
+            "displayName": "Make text bold",
+            "description": "",
+            "required": false
+          },
+          "italic": {
+            "type": "CHECKBOX",
+            "displayName": "Make text Italic",
+            "description": "",
+            "required": false
+          },
+          "strikethrough": {
+            "type": "CHECKBOX",
+            "displayName": "Make text Strikethrough",
+            "description": "",
+            "required": false
           }
         }
       },
       "find_row_by_num": {
-        "displayName": "Get Row",
-        "description": "Get a row in a Google Sheet by row number",
+        "displayName": "Get Single Row by ID",
+        "description": "Retrieve a specific row using its unique ID.",
         "properties": {
-          "spreadsheet_id": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Spreadsheet",
-            "description": "",
-            "required": true
-          },
-          "include_team_drives": {
+          "includeTeamDrives": {
             "type": "CHECKBOX",
-            "displayName": "Include Team Drive Sheets",
-            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
             "required": false,
             "defaultValue": false
           },
-          "sheet_id": {
+          "spreadsheetId": {
             "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Sheet",
-            "description": "",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
             "required": true
           },
           "rowNumber": {
             "type": "NUMBER",
             "displayName": "Row Number",
-            "description": "The row number to get from the sheet",
+            "description": "Enter the row number you want to retrieve",
             "required": true
+          },
+          "headerRow": {
+            "type": "NUMBER",
+            "displayName": "Header Row Number",
+            "description": "Enter the row number where your column headers are located (usually row 1).",
+            "required": true,
+            "defaultValue": 1
+          },
+          "useHeaderNames": {
+            "type": "CHECKBOX",
+            "displayName": "Use Column Names",
+            "description": "Use column names as keys instead of A, B, C.",
+            "required": false,
+            "defaultValue": true
           }
         }
       },
       "get_next_rows": {
         "displayName": "Get next row(s)",
-        "description": "Get next group of rows from a Google Sheet",
+        "description": "Get next group of rows from a specifiec workheet",
         "properties": {
-          "spreadsheet_id": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Spreadsheet",
-            "description": "",
-            "required": true
-          },
-          "include_team_drives": {
+          "includeTeamDrives": {
             "type": "CHECKBOX",
-            "displayName": "Include Team Drive Sheets",
-            "description": "Determines if sheets from Team Drives should be included in the results.",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
             "required": false,
             "defaultValue": false
           },
-          "sheet_id": {
+          "spreadsheetId": {
             "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Sheet",
-            "description": "",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
             "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "startRow": {
+            "type": "NUMBER",
+            "displayName": "Start Row",
+            "description": "Which row to start from?",
+            "required": true,
+            "defaultValue": 1
+          },
+          "headerRow": {
+            "type": "NUMBER",
+            "displayName": "Header Row",
+            "description": "Which row contains the headers?",
+            "required": true,
+            "defaultValue": 1
+          },
+          "useHeaderNames": {
+            "type": "CHECKBOX",
+            "displayName": "Use header names for keys",
+            "description": "Map A/B/C… to the actual column headers (row specified above).",
+            "required": false,
+            "defaultValue": false
+          },
+          "markdown": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**Notes:**\n\n- Memory key is used to remember where last row was processed and will be used in the following runs.\n- Republishing the flow **keeps** the memory key value, If you want to start over **change** the memory key.\n",
+            "required": false
           },
           "memKey": {
             "type": "SHORT_TEXT",
@@ -293,9 +927,294 @@
           }
         }
       },
+      "get-many-rows": {
+        "displayName": "Get All Rows",
+        "description": "Get all the rows from a specific sheet.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "first_row_headers": {
+            "type": "CHECKBOX",
+            "displayName": "First Row Contains Headers ?",
+            "description": "",
+            "required": true,
+            "defaultValue": false
+          }
+        }
+      },
+      "read-data-range": {
+        "displayName": "Read Data Range",
+        "description": "Read cells from a range using A1 notation (e.g. A1:D10). Returns rows and the resolved range.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "range": {
+            "type": "SHORT_TEXT",
+            "displayName": "Range (A1 Notation)",
+            "description": "The cell range to read, e.g. A1:D10. Leave empty to read the entire worksheet.",
+            "required": false
+          },
+          "majorDimension": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Major Dimension",
+            "description": "Whether to return rows (default) or columns. \"ROWS\" returns one array per row; \"COLUMNS\" returns one array per column.",
+            "required": true,
+            "defaultValue": "ROWS",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "Rows",
+                  "value": "ROWS"
+                },
+                {
+                  "label": "Columns",
+                  "value": "COLUMNS"
+                }
+              ]
+            }
+          },
+          "valueRenderOption": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Value Render Option",
+            "description": "How values should be represented in the output.",
+            "required": true,
+            "defaultValue": "FORMATTED_VALUE",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "Formatted Value",
+                  "value": "FORMATTED_VALUE"
+                },
+                {
+                  "label": "Unformatted Value",
+                  "value": "UNFORMATTED_VALUE"
+                },
+                {
+                  "label": "Formula",
+                  "value": "FORMULA"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "find_spreadsheets": {
+        "displayName": "Find Spreadsheet(s)",
+        "description": "Find spreadsheet(s) by name.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheet_name": {
+            "type": "SHORT_TEXT",
+            "displayName": "Spreadsheet Name",
+            "description": "Enter the name of the spreadsheet to search for",
+            "required": true
+          },
+          "exact_match": {
+            "type": "CHECKBOX",
+            "displayName": "Exact Match",
+            "description": "If true, only return spreadsheets that exactly match the name. If false, return spreadsheets that contain the name.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "find-worksheet": {
+        "displayName": "Find Worksheet(s)",
+        "description": "Finds a worksheet(s) by title.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "",
+            "required": true
+          },
+          "title": {
+            "type": "SHORT_TEXT",
+            "displayName": "Title",
+            "description": "",
+            "required": true
+          },
+          "exact_match": {
+            "type": "CHECKBOX",
+            "displayName": "Exact Match",
+            "description": "If true, only return worksheets that exactly match the name. If false, return worksheets that contain the name.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "copy-worksheet": {
+        "displayName": "Copy Worksheet",
+        "description": "Creates a new worksheet by copying an existing one.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet Containing the Worksheet to Copy",
+            "description": "",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet to Copy",
+            "description": "",
+            "required": true
+          },
+          "desinationSpeadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet to paste in",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "create-column": {
+        "displayName": "Create Spreadsheet Column",
+        "description": "Creates a new column in a specific spreadsheet.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "columnName": {
+            "type": "SHORT_TEXT",
+            "displayName": "Column Name",
+            "description": "",
+            "required": true
+          },
+          "columnIndex": {
+            "type": "NUMBER",
+            "displayName": "Column Index",
+            "description": "The column index starts from 1.For example, if you want to add a column to the third column, enter 3.Ff the input is less than 1 the column will be added after the last current column.",
+            "required": false
+          }
+        }
+      },
+      "export_sheet": {
+        "displayName": "Export Worksheet",
+        "description": "Download a worksheet as a CSV or TSV file.",
+        "properties": {
+          "includeTeamDrives": {
+            "type": "CHECKBOX",
+            "displayName": "Include Shared Drive Sheets ?",
+            "description": "Turn this on to also see spreadsheets from Shared Drives.",
+            "required": false,
+            "defaultValue": false
+          },
+          "spreadsheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Spreadsheet",
+            "description": "The ID of the spreadsheet to use.",
+            "required": true
+          },
+          "sheetId": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Worksheet",
+            "description": "The ID of the worksheet to use.",
+            "required": true
+          },
+          "format": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Export Format",
+            "description": "Select the file type to export the sheet as.",
+            "required": true,
+            "defaultValue": "csv",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "Comma Separated Values (.csv)",
+                  "value": "csv"
+                },
+                {
+                  "label": "Tab Separated Values (.tsv)",
+                  "value": "tsv"
+                }
+              ]
+            }
+          },
+          "returnAsText": {
+            "type": "CHECKBOX",
+            "displayName": "Return as Text",
+            "description": "Return the exported data as text instead of a file.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
       "custom_api_call": {
         "displayName": "Custom API Call",
-        "description": "Send a custom API call to a specific endpoint",
+        "description": "Make a custom API call to a specific endpoint",
         "properties": {
           "url": {
             "type": "DYNAMIC",
@@ -349,11 +1268,46 @@
             "description": "",
             "required": true
           },
+          "body_type": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Body Type",
+            "description": "",
+            "required": false,
+            "defaultValue": "none",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "None",
+                  "value": "none"
+                },
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Form Data",
+                  "value": "form_data"
+                },
+                {
+                  "label": "Raw",
+                  "value": "raw"
+                }
+              ]
+            }
+          },
           "body": {
-            "type": "JSON",
+            "type": "DYNAMIC",
             "displayName": "Body",
             "description": "",
             "required": false
+          },
+          "response_is_binary": {
+            "type": "CHECKBOX",
+            "displayName": "Response is Binary ?",
+            "description": "Enable for files like PDFs, images, etc.",
+            "required": false,
+            "defaultValue": false
           },
           "failsafe": {
             "type": "CHECKBOX",
@@ -366,6 +1320,13 @@
             "displayName": "Timeout (in seconds)",
             "description": "",
             "required": false
+          },
+          "followRedirects": {
+            "type": "CHECKBOX",
+            "displayName": "Follow redirects",
+            "description": "",
+            "required": false,
+            "defaultValue": false
           }
         }
       }
@@ -479,39 +1440,6 @@
           }
         }
       },
-      "generate_image": {
-        "displayName": "Generate Image",
-        "description": "Generate an image using text-to-image models",
-        "properties": {
-          "model": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Model",
-            "description": "The model which will generate the image.",
-            "required": true,
-            "defaultValue": "dall-e-3"
-          },
-          "prompt": {
-            "type": "LONG_TEXT",
-            "displayName": "Prompt",
-            "description": "",
-            "required": true
-          },
-          "resolution": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Resolution",
-            "description": "The resolution to generate the image in.",
-            "required": false,
-            "defaultValue": "1024x1024"
-          },
-          "quality": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Quality",
-            "description": "Standard is faster, HD has better details.",
-            "required": false,
-            "defaultValue": "standard"
-          }
-        }
-      },
       "vision_prompt": {
         "displayName": "Vision Prompt",
         "description": "Ask GPT a question about an image",
@@ -584,6 +1512,264 @@
           }
         }
       },
+      "extract-structured-data": {
+        "displayName": "Extract Structured Data from Text",
+        "description": "Returns structured data from provided unstructured text.",
+        "properties": {
+          "model": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "",
+            "required": true,
+            "defaultValue": "gpt-3.5-turbo"
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Unstructured Text",
+            "description": "",
+            "required": true
+          },
+          "params": {
+            "type": "ARRAY",
+            "displayName": "Data Definition",
+            "description": "",
+            "required": true
+          }
+        }
+      },
+      "classify_text": {
+        "displayName": "Classify Text (Moderation)",
+        "description": "Classify whether the supplied text violates OpenAI safety policies (harassment, hate, self-harm, sexual, violence, etc.).",
+        "properties": {
+          "model": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "Moderation model to use. omni-moderation-latest also supports images.",
+            "required": true,
+            "defaultValue": "omni-moderation-latest",
+            "options": {
+              "options": [
+                {
+                  "label": "omni-moderation-latest",
+                  "value": "omni-moderation-latest"
+                },
+                {
+                  "label": "text-moderation-latest",
+                  "value": "text-moderation-latest"
+                },
+                {
+                  "label": "text-moderation-stable",
+                  "value": "text-moderation-stable"
+                }
+              ]
+            }
+          },
+          "input": {
+            "type": "LONG_TEXT",
+            "displayName": "Input",
+            "description": "The text to classify.",
+            "required": true
+          }
+        }
+      },
+      "create_embedding": {
+        "displayName": "Create Embedding",
+        "description": "Generate a vector embedding for the supplied text. Useful for semantic search, clustering and RAG pipelines.",
+        "properties": {
+          "model": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "The embedding model to use.",
+            "required": true,
+            "defaultValue": "text-embedding-3-small",
+            "options": {
+              "options": [
+                {
+                  "label": "text-embedding-3-small",
+                  "value": "text-embedding-3-small"
+                },
+                {
+                  "label": "text-embedding-3-large",
+                  "value": "text-embedding-3-large"
+                },
+                {
+                  "label": "text-embedding-ada-002",
+                  "value": "text-embedding-ada-002"
+                }
+              ]
+            }
+          },
+          "input": {
+            "type": "LONG_TEXT",
+            "displayName": "Input",
+            "description": "The text to embed. To embed multiple strings in one call, provide a newline-separated list or use the Custom API Call action.",
+            "required": true
+          },
+          "dimensions": {
+            "type": "NUMBER",
+            "displayName": "Dimensions",
+            "description": "Number of dimensions for the embedding (only supported by text-embedding-3-* models).",
+            "required": false
+          },
+          "user": {
+            "type": "SHORT_TEXT",
+            "displayName": "User ID",
+            "description": "A stable identifier for the end user — helps OpenAI detect abuse.",
+            "required": false
+          }
+        }
+      },
+      "generate_image": {
+        "displayName": "Generate Image",
+        "description": "Generate an image using text-to-image models",
+        "properties": {
+          "model": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "The model which will generate the image.",
+            "required": true,
+            "defaultValue": "gpt-image-2"
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Prompt",
+            "description": "",
+            "required": true
+          },
+          "resolution": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Resolution",
+            "description": "The resolution to generate the image in.",
+            "required": false,
+            "defaultValue": "auto",
+            "options": {
+              "options": [
+                {
+                  "label": "Auto",
+                  "value": "auto"
+                },
+                {
+                  "label": "1024x1024",
+                  "value": "1024x1024"
+                },
+                {
+                  "label": "1536x1024 (landscape)",
+                  "value": "1536x1024"
+                },
+                {
+                  "label": "1024x1536 (portrait)",
+                  "value": "1024x1536"
+                }
+              ]
+            }
+          },
+          "quality": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Quality",
+            "description": "Image quality level.",
+            "required": false,
+            "defaultValue": "auto",
+            "options": {
+              "options": [
+                {
+                  "label": "Auto",
+                  "value": "auto"
+                },
+                {
+                  "label": "Low",
+                  "value": "low"
+                },
+                {
+                  "label": "Medium",
+                  "value": "medium"
+                },
+                {
+                  "label": "High",
+                  "value": "high"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "edit_image": {
+        "displayName": "Edit Image",
+        "description": "Edit an existing image using a text prompt with gpt-image-2",
+        "properties": {
+          "image": {
+            "type": "FILE",
+            "displayName": "Image",
+            "description": "The image to edit (PNG, JPEG, or WebP).",
+            "required": true
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Prompt",
+            "description": "A description of the desired edits or the new image.",
+            "required": true
+          },
+          "mask": {
+            "type": "FILE",
+            "displayName": "Mask",
+            "description": "Optional mask image. Transparent areas indicate where to apply edits. Must match the input image dimensions.",
+            "required": false
+          },
+          "size": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Size",
+            "description": "The size of the generated image.",
+            "required": false,
+            "defaultValue": "auto",
+            "options": {
+              "options": [
+                {
+                  "label": "Auto",
+                  "value": "auto"
+                },
+                {
+                  "label": "1024x1024",
+                  "value": "1024x1024"
+                },
+                {
+                  "label": "1536x1024 (landscape)",
+                  "value": "1536x1024"
+                },
+                {
+                  "label": "1024x1536 (portrait)",
+                  "value": "1024x1536"
+                }
+              ]
+            }
+          },
+          "quality": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Quality",
+            "description": "Image quality level.",
+            "required": false,
+            "defaultValue": "auto",
+            "options": {
+              "options": [
+                {
+                  "label": "Auto",
+                  "value": "auto"
+                },
+                {
+                  "label": "Low",
+                  "value": "low"
+                },
+                {
+                  "label": "Medium",
+                  "value": "medium"
+                },
+                {
+                  "label": "High",
+                  "value": "high"
+                }
+              ]
+            }
+          }
+        }
+      },
       "text_to_speech": {
         "displayName": "Text-to-Speech",
         "description": "Generate an audio recording from text",
@@ -595,24 +1781,11 @@
             "required": true
           },
           "model": {
-            "type": "STATIC_DROPDOWN",
+            "type": "DYNAMIC_DROPDOWN",
             "displayName": "Model",
             "description": "The model which will generate the audio.",
             "required": true,
-            "defaultValue": "tts-1",
-            "options": {
-              "disabled": false,
-              "options": [
-                {
-                  "label": "tts-1",
-                  "value": "tts-1"
-                },
-                {
-                  "label": "tts-1-hd",
-                  "value": "tts-1-hd"
-                }
-              ]
-            }
+            "defaultValue": "tts-1"
           },
           "speed": {
             "type": "NUMBER",
@@ -957,28 +2130,111 @@
           }
         }
       },
-      "extract-structured-data": {
-        "displayName": "Extract Structured Data from Text",
-        "description": "Returns structured data from provided unstructured text.",
+      "upload_file": {
+        "displayName": "Upload File",
+        "description": "Upload a file to OpenAI for use with Assistants, Vector Stores, Batch jobs, Fine-tuning, or Vision.",
         "properties": {
-          "model": {
-            "type": "DYNAMIC_DROPDOWN",
-            "displayName": "Model",
-            "description": "",
+          "file": {
+            "type": "FILE",
+            "displayName": "File",
+            "description": "The file to upload.",
+            "required": true
+          },
+          "purpose": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Purpose",
+            "description": "The intended use of the file. Each purpose has different allowed file types — see https://platform.openai.com/docs/api-reference/files/create.",
             "required": true,
-            "defaultValue": "gpt-3.5-turbo"
+            "defaultValue": "assistants",
+            "options": {
+              "options": [
+                {
+                  "label": "Assistants",
+                  "value": "assistants"
+                },
+                {
+                  "label": "Vision",
+                  "value": "vision"
+                },
+                {
+                  "label": "Batch",
+                  "value": "batch"
+                },
+                {
+                  "label": "Fine-tune",
+                  "value": "fine-tune"
+                }
+              ]
+            }
           },
-          "text": {
-            "type": "LONG_TEXT",
-            "displayName": "Unstructured Text",
-            "description": "",
-            "required": true
+          "fileName": {
+            "type": "SHORT_TEXT",
+            "displayName": "Override Filename",
+            "description": "Optional. By default the original filename is used. Provide a value to override (must include the extension).",
+            "required": false
+          }
+        }
+      },
+      "list_files": {
+        "displayName": "List Files",
+        "description": "Return the list of files uploaded to the connected OpenAI account, optionally filtered by purpose.",
+        "properties": {
+          "purpose": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Purpose Filter",
+            "description": "If supplied, only files with this purpose are returned.",
+            "required": false,
+            "options": {
+              "options": [
+                {
+                  "label": "Assistants",
+                  "value": "assistants"
+                },
+                {
+                  "label": "Vision",
+                  "value": "vision"
+                },
+                {
+                  "label": "Batch",
+                  "value": "batch"
+                },
+                {
+                  "label": "Fine-tune",
+                  "value": "fine-tune"
+                }
+              ]
+            }
           },
-          "params": {
-            "type": "ARRAY",
-            "displayName": "Data Definition",
-            "description": "",
+          "limit": {
+            "type": "NUMBER",
+            "displayName": "Limit",
+            "description": "Maximum number of files to return (1-10000). Defaults to 10000.",
+            "required": false,
+            "defaultValue": 100
+          }
+        }
+      },
+      "delete_file": {
+        "displayName": "Delete File",
+        "description": "Delete a file previously uploaded to the connected OpenAI account.",
+        "properties": {
+          "fileId": {
+            "type": "SHORT_TEXT",
+            "displayName": "File ID",
+            "description": "The OpenAI file ID returned by Upload File (starts with `file-`).",
             "required": true
+          }
+        }
+      },
+      "list_models": {
+        "displayName": "List Models",
+        "description": "Return the list of models available to the connected OpenAI account, optionally filtered by an ID substring.",
+        "properties": {
+          "contains": {
+            "type": "SHORT_TEXT",
+            "displayName": "Filter Substring",
+            "description": "Optional case-insensitive substring used to filter model IDs (e.g. `gpt-4`, `embedding`, `whisper`).",
+            "required": false
           }
         }
       },
@@ -1038,11 +2294,46 @@
             "description": "",
             "required": true
           },
+          "body_type": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Body Type",
+            "description": "",
+            "required": false,
+            "defaultValue": "none",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "None",
+                  "value": "none"
+                },
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Form Data",
+                  "value": "form_data"
+                },
+                {
+                  "label": "Raw",
+                  "value": "raw"
+                }
+              ]
+            }
+          },
           "body": {
-            "type": "JSON",
+            "type": "DYNAMIC",
             "displayName": "Body",
             "description": "",
             "required": false
+          },
+          "response_is_binary": {
+            "type": "CHECKBOX",
+            "displayName": "Response is Binary ?",
+            "description": "Enable for files like PDFs, images, etc.",
+            "required": false,
+            "defaultValue": false
           },
           "failsafe": {
             "type": "CHECKBOX",
@@ -1055,6 +2346,13 @@
             "displayName": "Timeout (in seconds)",
             "description": "",
             "required": false
+          },
+          "followRedirects": {
+            "type": "CHECKBOX",
+            "displayName": "Follow redirects",
+            "description": "",
+            "required": false,
+            "defaultValue": false
           }
         }
       }
@@ -2048,41 +3346,45 @@
     "actions": {
       "send_text_message": {
         "displayName": "Send Text Message",
-        "description": "Send a message through a Telegram bot",
+        "description": "Send a text message through a Telegram bot",
         "properties": {
           "instructions": {
             "type": "MARKDOWN",
             "displayName": "Markdown",
-            "description": "\n\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.**\n",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
             "required": false
           },
           "chat_id": {
             "type": "SHORT_TEXT",
             "displayName": "Chat Id",
-            "description": "",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
             "required": true
           },
           "message_thread_id": {
             "type": "SHORT_TEXT",
             "displayName": "Message Thread Id",
-            "description": "Unique identifier for the target message thread of the forums; for forums supergroups only",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
             "required": false
           },
           "format": {
             "type": "STATIC_DROPDOWN",
             "displayName": "Format",
-            "description": "Choose format you want ",
+            "description": "How the message text should be parsed by Telegram.",
             "required": false,
             "defaultValue": "MarkdownV2",
             "options": {
               "options": [
                 {
-                  "label": "Markdown",
+                  "label": "Markdown (V2)",
                   "value": "MarkdownV2"
                 },
                 {
                   "label": "HTML",
                   "value": "HTML"
+                },
+                {
+                  "label": "Plain Text",
+                  "value": "None"
                 }
               ]
             }
@@ -2090,15 +3392,35 @@
           "instructions_format": {
             "type": "MARKDOWN",
             "displayName": "Markdown",
-            "description": "\n[Link example](https://core.telegram.org/bots/api#formatting-options)\n",
+            "description": "\n[Formatting options](https://core.telegram.org/bots/api#formatting-options)\n",
             "required": false
           },
           "web_page_preview": {
             "type": "CHECKBOX",
             "displayName": "Disable Web Page Preview",
-            "description": "Disable link previews for links in this message",
+            "description": "Disable link previews for links in this message.",
             "required": false,
             "defaultValue": false
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Send the message silently. Users will receive a notification with no sound.",
+            "required": false,
+            "defaultValue": false
+          },
+          "protect_content": {
+            "type": "CHECKBOX",
+            "displayName": "Protect Content",
+            "description": "Protects the contents of the sent message from forwarding and saving.",
+            "required": false,
+            "defaultValue": false
+          },
+          "reply_to_message_id": {
+            "type": "NUMBER",
+            "displayName": "Reply To Message Id",
+            "description": "If the message is a reply, ID of the original message.",
+            "required": false
           },
           "message": {
             "type": "LONG_TEXT",
@@ -2109,38 +3431,38 @@
           "reply_markup": {
             "type": "JSON",
             "displayName": "Reply Markup",
-            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user. Use special actions such as Build Inline Keyboard to generate this JSON object.",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.",
             "required": false
           }
         }
       },
       "send_media": {
         "displayName": "Send Media",
-        "description": "Send a media message through a Telegram bot",
+        "description": "Send a media message (photo, video, sticker, GIF) through a Telegram bot",
         "properties": {
           "instructions": {
             "type": "MARKDOWN",
             "displayName": "Markdown",
-            "description": "\n\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.**\n",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
             "required": false
           },
           "chat_id": {
             "type": "SHORT_TEXT",
             "displayName": "Chat Id",
-            "description": "",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
             "required": true
           },
           "message_thread_id": {
             "type": "SHORT_TEXT",
             "displayName": "Message Thread Id",
-            "description": "Unique identifier for the target message thread of the forums; for forums supergroups only",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
             "required": false
           },
           "media_type": {
             "type": "STATIC_DROPDOWN",
             "displayName": "Media Type",
             "description": "",
-            "required": false,
+            "required": true,
             "options": {
               "disabled": false,
               "placeholder": "Select media type",
@@ -2173,18 +3495,22 @@
           "format": {
             "type": "STATIC_DROPDOWN",
             "displayName": "Format",
-            "description": "Choose format you want ",
+            "description": "How the message text should be parsed by Telegram.",
             "required": false,
             "defaultValue": "MarkdownV2",
             "options": {
               "options": [
                 {
-                  "label": "Markdown",
+                  "label": "Markdown (V2)",
                   "value": "MarkdownV2"
                 },
                 {
                   "label": "HTML",
                   "value": "HTML"
+                },
+                {
+                  "label": "Plain Text",
+                  "value": "None"
                 }
               ]
             }
@@ -2192,37 +3518,875 @@
           "instructions_format": {
             "type": "MARKDOWN",
             "displayName": "Markdown",
-            "description": "\n[Link example](https://core.telegram.org/bots/api#formatting-options)\n",
+            "description": "\n[Formatting options](https://core.telegram.org/bots/api#formatting-options)\n",
             "required": false
           },
           "message": {
             "type": "LONG_TEXT",
-            "displayName": "Message",
-            "description": "The message to be sent",
-            "required": true
+            "displayName": "Caption",
+            "description": "The caption to send with the media",
+            "required": false
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Send the message silently. Users will receive a notification with no sound.",
+            "required": false,
+            "defaultValue": false
+          },
+          "protect_content": {
+            "type": "CHECKBOX",
+            "displayName": "Protect Content",
+            "description": "Protects the contents of the sent message from forwarding and saving.",
+            "required": false,
+            "defaultValue": false
           },
           "reply_markup": {
             "type": "JSON",
             "displayName": "Reply Markup",
-            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user. Use special actions such as Build Inline Keyboard to generate this JSON object.",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.",
             "required": false
           }
         }
       },
-      "get_chat_member": {
-        "displayName": "Get Chat Member",
-        "description": "Get member info (or null) for provided chat id and user id",
+      "send_document": {
+        "displayName": "Send Document",
+        "description": "Send a generic file (document) to a Telegram chat",
         "properties": {
           "instructions": {
             "type": "MARKDOWN",
             "displayName": "Markdown",
-            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.**\n",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
             "required": false
           },
           "chat_id": {
             "type": "SHORT_TEXT",
             "displayName": "Chat Id",
-            "description": "",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
+            "required": false
+          },
+          "document": {
+            "type": "FILE",
+            "displayName": "Document",
+            "description": "The document file to send. Telegram supports any file up to 50 MB.",
+            "required": false
+          },
+          "document_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Document Id",
+            "description": "Reuse a document previously uploaded to Telegram by passing its file_id. Either provide a document or a document id.",
+            "required": false
+          },
+          "caption": {
+            "type": "LONG_TEXT",
+            "displayName": "Caption",
+            "description": "Optional caption to display below the document (0–1024 chars).",
+            "required": false
+          },
+          "format": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Format",
+            "description": "How the message text should be parsed by Telegram.",
+            "required": false,
+            "defaultValue": "MarkdownV2",
+            "options": {
+              "options": [
+                {
+                  "label": "Markdown (V2)",
+                  "value": "MarkdownV2"
+                },
+                {
+                  "label": "HTML",
+                  "value": "HTML"
+                },
+                {
+                  "label": "Plain Text",
+                  "value": "None"
+                }
+              ]
+            }
+          },
+          "instructions_format": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n[Formatting options](https://core.telegram.org/bots/api#formatting-options)\n",
+            "required": false
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Send the message silently. Users will receive a notification with no sound.",
+            "required": false,
+            "defaultValue": false
+          },
+          "protect_content": {
+            "type": "CHECKBOX",
+            "displayName": "Protect Content",
+            "description": "Protects the contents of the sent message from forwarding and saving.",
+            "required": false,
+            "defaultValue": false
+          },
+          "reply_to_message_id": {
+            "type": "NUMBER",
+            "displayName": "Reply To Message Id",
+            "description": "If the message is a reply, ID of the original message.",
+            "required": false
+          },
+          "reply_markup": {
+            "type": "JSON",
+            "displayName": "Reply Markup",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.",
+            "required": false
+          }
+        }
+      },
+      "send_audio": {
+        "displayName": "Send Audio",
+        "description": "Send an audio file to a Telegram chat (.MP3/.M4A — shown in the music player)",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
+            "required": false
+          },
+          "audio": {
+            "type": "FILE",
+            "displayName": "Audio",
+            "description": "The audio file to send (.MP3 or .M4A).",
+            "required": false
+          },
+          "audio_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Audio Id",
+            "description": "Reuse an audio file previously uploaded to Telegram by passing its file_id.",
+            "required": false
+          },
+          "caption": {
+            "type": "LONG_TEXT",
+            "displayName": "Caption",
+            "description": "Optional caption (0–1024 chars).",
+            "required": false
+          },
+          "format": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Format",
+            "description": "How the message text should be parsed by Telegram.",
+            "required": false,
+            "defaultValue": "MarkdownV2",
+            "options": {
+              "options": [
+                {
+                  "label": "Markdown (V2)",
+                  "value": "MarkdownV2"
+                },
+                {
+                  "label": "HTML",
+                  "value": "HTML"
+                },
+                {
+                  "label": "Plain Text",
+                  "value": "None"
+                }
+              ]
+            }
+          },
+          "instructions_format": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n[Formatting options](https://core.telegram.org/bots/api#formatting-options)\n",
+            "required": false
+          },
+          "duration": {
+            "type": "NUMBER",
+            "displayName": "Duration",
+            "description": "Duration of the audio in seconds.",
+            "required": false
+          },
+          "performer": {
+            "type": "SHORT_TEXT",
+            "displayName": "Performer",
+            "description": "Performer / artist name.",
+            "required": false
+          },
+          "title": {
+            "type": "SHORT_TEXT",
+            "displayName": "Track Title",
+            "description": "Track title.",
+            "required": false
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Send the message silently. Users will receive a notification with no sound.",
+            "required": false,
+            "defaultValue": false
+          },
+          "protect_content": {
+            "type": "CHECKBOX",
+            "displayName": "Protect Content",
+            "description": "Protects the contents of the sent message from forwarding and saving.",
+            "required": false,
+            "defaultValue": false
+          },
+          "reply_to_message_id": {
+            "type": "NUMBER",
+            "displayName": "Reply To Message Id",
+            "description": "If the message is a reply, ID of the original message.",
+            "required": false
+          },
+          "reply_markup": {
+            "type": "JSON",
+            "displayName": "Reply Markup",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.",
+            "required": false
+          }
+        }
+      },
+      "send_location": {
+        "displayName": "Send Location",
+        "description": "Send a geographic location (latitude/longitude) to a Telegram chat",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
+            "required": false
+          },
+          "latitude": {
+            "type": "NUMBER",
+            "displayName": "Latitude",
+            "description": "Latitude of the location.",
+            "required": true
+          },
+          "longitude": {
+            "type": "NUMBER",
+            "displayName": "Longitude",
+            "description": "Longitude of the location.",
+            "required": true
+          },
+          "horizontal_accuracy": {
+            "type": "NUMBER",
+            "displayName": "Horizontal Accuracy",
+            "description": "Radius of uncertainty for the location, in meters (0–1500).",
+            "required": false
+          },
+          "live_period": {
+            "type": "NUMBER",
+            "displayName": "Live Period",
+            "description": "Number of seconds the location will be updated (60–86400). Use for live locations.",
+            "required": false
+          },
+          "heading": {
+            "type": "NUMBER",
+            "displayName": "Heading",
+            "description": "For live locations, direction the user is moving in degrees (1–360).",
+            "required": false
+          },
+          "proximity_alert_radius": {
+            "type": "NUMBER",
+            "displayName": "Proximity Alert Radius",
+            "description": "For live locations, the max distance (1–100000 m) for proximity alerts about approaching another chat member.",
+            "required": false
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Send the message silently. Users will receive a notification with no sound.",
+            "required": false,
+            "defaultValue": false
+          },
+          "protect_content": {
+            "type": "CHECKBOX",
+            "displayName": "Protect Content",
+            "description": "Protects the contents of the sent message from forwarding and saving.",
+            "required": false,
+            "defaultValue": false
+          },
+          "reply_to_message_id": {
+            "type": "NUMBER",
+            "displayName": "Reply To Message Id",
+            "description": "If the message is a reply, ID of the original message.",
+            "required": false
+          },
+          "reply_markup": {
+            "type": "JSON",
+            "displayName": "Reply Markup",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.",
+            "required": false
+          }
+        }
+      },
+      "send_media_group": {
+        "displayName": "Send Media Group",
+        "description": "Send a group of 2–10 photos, videos, documents or audios as an album to a chat",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
+            "required": false
+          },
+          "media": {
+            "type": "ARRAY",
+            "displayName": "Media",
+            "description": "Media items to send. Each must be a URL or a Telegram file_id. Mixing photo/video is allowed; audio and document groups cannot be mixed with other types.",
+            "required": true
+          },
+          "parse_mode": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Format",
+            "description": "How the message text should be parsed by Telegram.",
+            "required": false,
+            "defaultValue": "MarkdownV2",
+            "options": {
+              "options": [
+                {
+                  "label": "Markdown (V2)",
+                  "value": "MarkdownV2"
+                },
+                {
+                  "label": "HTML",
+                  "value": "HTML"
+                },
+                {
+                  "label": "Plain Text",
+                  "value": "None"
+                }
+              ]
+            }
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Send the message silently. Users will receive a notification with no sound.",
+            "required": false,
+            "defaultValue": false
+          },
+          "protect_content": {
+            "type": "CHECKBOX",
+            "displayName": "Protect Content",
+            "description": "Protects the contents of the sent message from forwarding and saving.",
+            "required": false,
+            "defaultValue": false
+          },
+          "reply_to_message_id": {
+            "type": "NUMBER",
+            "displayName": "Reply To Message Id",
+            "description": "If the message is a reply, ID of the original message.",
+            "required": false
+          }
+        }
+      },
+      "send_poll": {
+        "displayName": "Send Poll",
+        "description": "Send a native Telegram poll (regular or quiz) to a chat",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
+            "required": false
+          },
+          "question": {
+            "type": "SHORT_TEXT",
+            "displayName": "Question",
+            "description": "Poll question, 1–300 characters.",
+            "required": true
+          },
+          "options": {
+            "type": "ARRAY",
+            "displayName": "Options",
+            "description": "List of answer options (2–10 options, each 1–100 characters).",
+            "required": true
+          },
+          "is_anonymous": {
+            "type": "CHECKBOX",
+            "displayName": "Anonymous",
+            "description": "True, if the poll needs to be anonymous. Default true.",
+            "required": false,
+            "defaultValue": true
+          },
+          "type": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Poll Type",
+            "description": "Poll type. Defaults to \"regular\".",
+            "required": false,
+            "defaultValue": "regular",
+            "options": {
+              "options": [
+                {
+                  "label": "Regular",
+                  "value": "regular"
+                },
+                {
+                  "label": "Quiz",
+                  "value": "quiz"
+                }
+              ]
+            }
+          },
+          "allows_multiple_answers": {
+            "type": "CHECKBOX",
+            "displayName": "Allow Multiple Answers",
+            "description": "True if the poll allows multiple answers (regular polls only).",
+            "required": false,
+            "defaultValue": false
+          },
+          "correct_option_id": {
+            "type": "NUMBER",
+            "displayName": "Correct Option Id (Quiz)",
+            "description": "0-based index of the correct answer option (required for quizzes).",
+            "required": false
+          },
+          "explanation": {
+            "type": "LONG_TEXT",
+            "displayName": "Explanation (Quiz)",
+            "description": "Explanation shown when a user picks an incorrect answer (0–200 chars).",
+            "required": false
+          },
+          "explanation_parse_mode": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Format",
+            "description": "How the message text should be parsed by Telegram.",
+            "required": false,
+            "defaultValue": "MarkdownV2",
+            "options": {
+              "options": [
+                {
+                  "label": "Markdown (V2)",
+                  "value": "MarkdownV2"
+                },
+                {
+                  "label": "HTML",
+                  "value": "HTML"
+                },
+                {
+                  "label": "Plain Text",
+                  "value": "None"
+                }
+              ]
+            }
+          },
+          "open_period": {
+            "type": "NUMBER",
+            "displayName": "Open Period (seconds)",
+            "description": "Amount of time in seconds the poll will be active (5–600).",
+            "required": false
+          },
+          "close_date": {
+            "type": "DATE_TIME",
+            "displayName": "Close Date",
+            "description": "Point in time when the poll will be automatically closed.",
+            "required": false
+          },
+          "is_closed": {
+            "type": "CHECKBOX",
+            "displayName": "Closed",
+            "description": "Pass True if the poll should be immediately closed. Useful for previews.",
+            "required": false,
+            "defaultValue": false
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Send the message silently. Users will receive a notification with no sound.",
+            "required": false,
+            "defaultValue": false
+          },
+          "protect_content": {
+            "type": "CHECKBOX",
+            "displayName": "Protect Content",
+            "description": "Protects the contents of the sent message from forwarding and saving.",
+            "required": false,
+            "defaultValue": false
+          },
+          "reply_to_message_id": {
+            "type": "NUMBER",
+            "displayName": "Reply To Message Id",
+            "description": "If the message is a reply, ID of the original message.",
+            "required": false
+          },
+          "reply_markup": {
+            "type": "JSON",
+            "displayName": "Reply Markup",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.",
+            "required": false
+          }
+        }
+      },
+      "send_chat_action": {
+        "displayName": "Send Chat Action",
+        "description": "Show a status (typing, uploading photo, recording voice, etc.) on behalf of the bot in a chat. The status is shown for up to 5 seconds.",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
+            "required": false
+          },
+          "action": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Action",
+            "description": "Type of action to broadcast.",
+            "required": true,
+            "defaultValue": "typing",
+            "options": {
+              "options": [
+                {
+                  "label": "Typing",
+                  "value": "typing"
+                },
+                {
+                  "label": "Upload Photo",
+                  "value": "upload_photo"
+                },
+                {
+                  "label": "Record Video",
+                  "value": "record_video"
+                },
+                {
+                  "label": "Upload Video",
+                  "value": "upload_video"
+                },
+                {
+                  "label": "Record Voice",
+                  "value": "record_voice"
+                },
+                {
+                  "label": "Upload Voice",
+                  "value": "upload_voice"
+                },
+                {
+                  "label": "Upload Document",
+                  "value": "upload_document"
+                },
+                {
+                  "label": "Choose Sticker",
+                  "value": "choose_sticker"
+                },
+                {
+                  "label": "Find Location",
+                  "value": "find_location"
+                },
+                {
+                  "label": "Record Video Note",
+                  "value": "record_video_note"
+                },
+                {
+                  "label": "Upload Video Note",
+                  "value": "upload_video_note"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "edit_message_text": {
+        "displayName": "Edit Message Text",
+        "description": "Edit the text of a previously sent message or an inline message",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Required when editing a message sent by the bot. Leave empty to edit an inline message (use Inline Message Id instead).",
+            "required": false
+          },
+          "message_id": {
+            "type": "NUMBER",
+            "displayName": "Message Id",
+            "description": "Identifier of the message to edit (used together with Chat Id).",
+            "required": false
+          },
+          "inline_message_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Inline Message Id",
+            "description": "Identifier of the inline message (mutually exclusive with Chat Id + Message Id).",
+            "required": false
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "New Text",
+            "description": "New text of the message (1–4096 chars).",
+            "required": true
+          },
+          "format": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Format",
+            "description": "How the message text should be parsed by Telegram.",
+            "required": false,
+            "defaultValue": "MarkdownV2",
+            "options": {
+              "options": [
+                {
+                  "label": "Markdown (V2)",
+                  "value": "MarkdownV2"
+                },
+                {
+                  "label": "HTML",
+                  "value": "HTML"
+                },
+                {
+                  "label": "Plain Text",
+                  "value": "None"
+                }
+              ]
+            }
+          },
+          "instructions_format": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n[Formatting options](https://core.telegram.org/bots/api#formatting-options)\n",
+            "required": false
+          },
+          "disable_web_page_preview": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Web Page Preview",
+            "description": "Disable link previews for links in this message.",
+            "required": false,
+            "defaultValue": false
+          },
+          "reply_markup": {
+            "type": "JSON",
+            "displayName": "Reply Markup",
+            "description": "Additional interface options. A JSON-serialized object for an inline keyboard, custom reply keyboard, instructions to remove reply keyboard or to force a reply from the user.",
+            "required": false
+          }
+        }
+      },
+      "delete_message": {
+        "displayName": "Delete Message",
+        "description": "Delete a message sent in a chat. Bots can delete their own messages and messages in groups where they are admins.",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_id": {
+            "type": "NUMBER",
+            "displayName": "Message Id",
+            "description": "Identifier of the message to delete.",
+            "required": true
+          }
+        }
+      },
+      "forward_message": {
+        "displayName": "Forward Message",
+        "description": "Forward a message from one chat to another",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Target Chat Id",
+            "description": "Chat the message will be forwarded to.",
+            "required": true
+          },
+          "from_chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "From Chat Id",
+            "description": "Chat the original message came from.",
+            "required": true
+          },
+          "message_id": {
+            "type": "NUMBER",
+            "displayName": "Message Id",
+            "description": "Identifier of the message to forward.",
+            "required": true
+          },
+          "message_thread_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Message Thread Id",
+            "description": "Unique identifier for the target message thread of the forum; supergroup forums only.",
+            "required": false
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Send the message silently. Users will receive a notification with no sound.",
+            "required": false,
+            "defaultValue": false
+          },
+          "protect_content": {
+            "type": "CHECKBOX",
+            "displayName": "Protect Content",
+            "description": "Protects the contents of the sent message from forwarding and saving.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "pin_message": {
+        "displayName": "Pin Message",
+        "description": "Pin a message in a chat. The bot must be an administrator in the chat for this to work.",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_id": {
+            "type": "NUMBER",
+            "displayName": "Message Id",
+            "description": "Identifier of the message to pin.",
+            "required": true
+          },
+          "disable_notification": {
+            "type": "CHECKBOX",
+            "displayName": "Disable Notification",
+            "description": "Pass True if it is not necessary to send a notification to all chat members.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "unpin_message": {
+        "displayName": "Unpin Message",
+        "description": "Unpin a message in a chat. Leave Message Id empty to unpin the most recent pinned message.",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          },
+          "message_id": {
+            "type": "NUMBER",
+            "displayName": "Message Id",
+            "description": "Identifier of the pinned message to unpin. Leave empty to unpin the most recent pinned message.",
+            "required": false
+          }
+        }
+      },
+      "get_chat": {
+        "displayName": "Get Chat",
+        "description": "Get up-to-date information about a chat (name, description, photo, member count, etc.)",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
+            "required": true
+          }
+        }
+      },
+      "get_chat_member": {
+        "displayName": "Get Chat Member",
+        "description": "Get member info (or null) for the provided chat id and user id",
+        "properties": {
+          "instructions": {
+            "type": "MARKDOWN",
+            "displayName": "Markdown",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
+            "required": false
+          },
+          "chat_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Chat Id",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
             "required": true
           },
           "user_id": {
@@ -2235,7 +4399,7 @@
       },
       "get_file": {
         "displayName": "Get File",
-        "description": "Get file information and download a file from Telegram",
+        "description": "Get file information and optionally download a file from Telegram",
         "properties": {
           "file_id": {
             "type": "SHORT_TEXT",
@@ -2246,7 +4410,7 @@
           "download": {
             "type": "CHECKBOX",
             "displayName": "Download File",
-            "description": "If enabled, the file will be downloaded and returned as base64",
+            "description": "If enabled, the file is downloaded and returned as base64.",
             "required": false,
             "defaultValue": false
           }
@@ -2259,13 +4423,13 @@
           "instructions": {
             "type": "MARKDOWN",
             "displayName": "Markdown",
-            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.**\n",
+            "description": "\n**How to obtain Chat ID:**\n1. Search for the bot \"@getmyid_bot\" in Telegram.\n2. Start a conversation with the bot.\n3. Send the command \"/my_id\" to the bot.\n4. The bot will reply with your chat ID.\n\n**Note: Remember to initiate the chat with the bot, or you'll get an error for \"chat not found.\"**\n",
             "required": false
           },
           "chat_id": {
             "type": "SHORT_TEXT",
             "displayName": "Chat Id",
-            "description": "",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
             "required": true
           },
           "name": {
@@ -2285,6 +4449,50 @@
             "displayName": "Member Limit",
             "description": "Maximum number of users that can be members of the chat simultaneously after joining the chat via this invite link; 1-99999",
             "required": false
+          },
+          "creates_join_request": {
+            "type": "CHECKBOX",
+            "displayName": "Creates Join Request",
+            "description": "If True, users joining the chat via the link need to be approved by chat administrators.",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      },
+      "answer_callback_query": {
+        "displayName": "Answer Callback Query",
+        "description": "Respond to a callback query sent by an inline keyboard button. Shows a notification or alert to the user.",
+        "properties": {
+          "callback_query_id": {
+            "type": "SHORT_TEXT",
+            "displayName": "Callback Query Id",
+            "description": "Unique identifier of the callback query. Available on `callback_query.id` in the New Callback Query trigger payload.",
+            "required": true
+          },
+          "text": {
+            "type": "LONG_TEXT",
+            "displayName": "Text",
+            "description": "Text shown to the user. If not specified, nothing is shown (the spinner is just stopped).",
+            "required": false
+          },
+          "show_alert": {
+            "type": "CHECKBOX",
+            "displayName": "Show Alert",
+            "description": "If True, an alert dialog is shown instead of a notification at the top of the screen.",
+            "required": false,
+            "defaultValue": false
+          },
+          "url": {
+            "type": "SHORT_TEXT",
+            "displayName": "URL",
+            "description": "URL that will be opened by the user.",
+            "required": false
+          },
+          "cache_time": {
+            "type": "NUMBER",
+            "displayName": "Cache Time (seconds)",
+            "description": "The maximum amount of time in seconds the result of the callback query may be cached client-side.",
+            "required": false
           }
         }
       },
@@ -2301,7 +4509,7 @@
           "chat_id": {
             "type": "SHORT_TEXT",
             "displayName": "Chat Id",
-            "description": "",
+            "description": "Unique identifier for the target chat or username of the target channel (e.g. @channelusername).",
             "required": true
           },
           "message": {
@@ -2313,13 +4521,13 @@
           "parse_mode": {
             "type": "STATIC_DROPDOWN",
             "displayName": "Format",
-            "description": "Choose format for the message",
+            "description": "How the message text should be parsed by Telegram.",
             "required": false,
             "defaultValue": "MarkdownV2",
             "options": {
               "options": [
                 {
-                  "label": "Markdown",
+                  "label": "Markdown (V2)",
                   "value": "MarkdownV2"
                 },
                 {
@@ -2346,6 +4554,329 @@
             "description": "Text for the disapprove button",
             "required": false,
             "defaultValue": "Disapprove"
+          }
+        }
+      },
+      "custom_api_call": {
+        "displayName": "Custom API Call",
+        "description": "Make a custom API call to a specific endpoint",
+        "properties": {
+          "url": {
+            "type": "DYNAMIC",
+            "displayName": "url",
+            "description": "",
+            "required": true
+          },
+          "method": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Method",
+            "description": "",
+            "required": true,
+            "options": {
+              "options": [
+                {
+                  "label": "GET",
+                  "value": "GET"
+                },
+                {
+                  "label": "POST",
+                  "value": "POST"
+                },
+                {
+                  "label": "PATCH",
+                  "value": "PATCH"
+                },
+                {
+                  "label": "PUT",
+                  "value": "PUT"
+                },
+                {
+                  "label": "DELETE",
+                  "value": "DELETE"
+                },
+                {
+                  "label": "HEAD",
+                  "value": "HEAD"
+                }
+              ]
+            }
+          },
+          "headers": {
+            "type": "OBJECT",
+            "displayName": "Headers",
+            "description": "Authorization headers are injected automatically from your connection.",
+            "required": true
+          },
+          "queryParams": {
+            "type": "OBJECT",
+            "displayName": "Query Parameters",
+            "description": "",
+            "required": true
+          },
+          "body_type": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Body Type",
+            "description": "",
+            "required": false,
+            "defaultValue": "none",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "None",
+                  "value": "none"
+                },
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Form Data",
+                  "value": "form_data"
+                },
+                {
+                  "label": "Raw",
+                  "value": "raw"
+                }
+              ]
+            }
+          },
+          "body": {
+            "type": "DYNAMIC",
+            "displayName": "Body",
+            "description": "",
+            "required": false
+          },
+          "response_is_binary": {
+            "type": "CHECKBOX",
+            "displayName": "Response is Binary ?",
+            "description": "Enable for files like PDFs, images, etc.",
+            "required": false,
+            "defaultValue": false
+          },
+          "failsafe": {
+            "type": "CHECKBOX",
+            "displayName": "No Error on Failure",
+            "description": "",
+            "required": false
+          },
+          "timeout": {
+            "type": "NUMBER",
+            "displayName": "Timeout (in seconds)",
+            "description": "",
+            "required": false
+          },
+          "followRedirects": {
+            "type": "CHECKBOX",
+            "displayName": "Follow redirects",
+            "description": "",
+            "required": false,
+            "defaultValue": false
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "groq",
+    "displayName": "Groq",
+    "description": "Use Groq's fast language models and audio processing capabilities.",
+    "logoUrl": "https://cdn.activepieces.com/pieces/groq.png",
+    "auth": {
+      "type": "SECRET_TEXT",
+      "description": "Enter your Groq API Key",
+      "displayName": "API Key",
+      "scope": [],
+      "authUrl": null
+    },
+    "actions": {
+      "ask-ai": {
+        "displayName": "Ask AI",
+        "description": "Ask Groq anything using fast language models.",
+        "properties": {
+          "model": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "The model which will generate the completion.",
+            "required": true,
+            "defaultValue": "llama-3.1-70b-versatile"
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Question",
+            "description": "",
+            "required": true
+          },
+          "temperature": {
+            "type": "NUMBER",
+            "displayName": "Temperature",
+            "description": "Controls randomness: Lowering results in less random completions. As the temperature approaches zero, the model will become deterministic and repetitive.",
+            "required": false,
+            "defaultValue": 0.9
+          },
+          "maxTokens": {
+            "type": "NUMBER",
+            "displayName": "Maximum Tokens",
+            "description": "The maximum number of tokens to generate. The total length of input tokens and generated tokens is limited by the model's context length.",
+            "required": true,
+            "defaultValue": 2048
+          },
+          "topP": {
+            "type": "NUMBER",
+            "displayName": "Top P",
+            "description": "An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability mass are considered.",
+            "required": false,
+            "defaultValue": 1
+          },
+          "frequencyPenalty": {
+            "type": "NUMBER",
+            "displayName": "Frequency penalty",
+            "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.",
+            "required": false,
+            "defaultValue": 0
+          },
+          "presencePenalty": {
+            "type": "NUMBER",
+            "displayName": "Presence penalty",
+            "description": "Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.",
+            "required": false,
+            "defaultValue": 0.6
+          },
+          "memoryKey": {
+            "type": "SHORT_TEXT",
+            "displayName": "Memory Key",
+            "description": "A memory key that will keep the chat history shared across runs and flows. Keep it empty to leave Groq without memory of previous messages.",
+            "required": false
+          },
+          "roles": {
+            "type": "JSON",
+            "displayName": "Roles",
+            "description": "Array of roles to specify more accurate response",
+            "required": false,
+            "defaultValue": [
+              {
+                "role": "system",
+                "content": "You are a helpful assistant."
+              }
+            ]
+          }
+        }
+      },
+      "transcribe-audio": {
+        "displayName": "Transcribe Audio",
+        "description": "Transcribes audio into text in the input language.",
+        "properties": {
+          "file": {
+            "type": "FILE",
+            "displayName": "Audio File",
+            "description": "The audio file to transcribe. Supported formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm.",
+            "required": true
+          },
+          "model": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "The model to use for transcription.",
+            "required": true,
+            "defaultValue": "whisper-large-v3"
+          },
+          "language": {
+            "type": "SHORT_TEXT",
+            "displayName": "Language",
+            "description": "The language of the input audio in ISO-639-1 format (e.g., \"en\" for English). This will improve accuracy and latency.",
+            "required": false
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Prompt",
+            "description": "An optional text to guide the model's style or continue a previous audio segment. The prompt should match the audio language.",
+            "required": false
+          },
+          "temperature": {
+            "type": "NUMBER",
+            "displayName": "Temperature",
+            "description": "The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
+            "required": false,
+            "defaultValue": 0
+          },
+          "responseFormat": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Response Format",
+            "description": "The format of the transcript output.",
+            "required": false,
+            "defaultValue": "json",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Text",
+                  "value": "text"
+                },
+                {
+                  "label": "Verbose JSON",
+                  "value": "verbose_json"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "translate-audio": {
+        "displayName": "Translate Audio",
+        "description": "Translates audio into English text.",
+        "properties": {
+          "file": {
+            "type": "FILE",
+            "displayName": "Audio File",
+            "description": "The audio file to translate. Supported formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, webm.",
+            "required": true
+          },
+          "model": {
+            "type": "DYNAMIC_DROPDOWN",
+            "displayName": "Model",
+            "description": "The model to use for translation.",
+            "required": true,
+            "defaultValue": "whisper-large-v3"
+          },
+          "prompt": {
+            "type": "LONG_TEXT",
+            "displayName": "Prompt",
+            "description": "An optional text in English to guide the model's style or continue a previous audio segment.",
+            "required": false
+          },
+          "temperature": {
+            "type": "NUMBER",
+            "displayName": "Temperature",
+            "description": "The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.",
+            "required": false,
+            "defaultValue": 0
+          },
+          "responseFormat": {
+            "type": "STATIC_DROPDOWN",
+            "displayName": "Response Format",
+            "description": "The format of the translation output.",
+            "required": false,
+            "defaultValue": "json",
+            "options": {
+              "disabled": false,
+              "options": [
+                {
+                  "label": "JSON",
+                  "value": "json"
+                },
+                {
+                  "label": "Text",
+                  "value": "text"
+                },
+                {
+                  "label": "Verbose JSON",
+                  "value": "verbose_json"
+                }
+              ]
+            }
           }
         }
       },

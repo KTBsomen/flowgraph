@@ -125,7 +125,14 @@ export function createWorkflow(options = {}) {
   }
   if (renderToolbar) {
     const toolbarOpts = {
-      ...options.toolbar,
+      showRun: options.showRun !== undefined ? options.showRun : options.toolbar?.showRun,
+      showCost: options.showCost !== undefined ? options.showCost : options.toolbar?.showCost,
+      showExport: options.showExport !== undefined ? options.showExport : options.toolbar?.showExport,
+      showImport: options.showImport !== undefined ? options.showImport : options.toolbar?.showImport,
+      showClear: options.showClear !== undefined ? options.showClear : options.toolbar?.showClear,
+      showDefaultButtons: options.showDefaultButtons !== undefined ? options.showDefaultButtons : options.toolbar?.showDefaultButtons,
+      buttons: options.buttons || options.toolbar?.buttons,
+      ...(typeof options.toolbar === 'object' ? options.toolbar : {}),
       readOnly
     };
     toolbar = new Toolbar(toolbarWrap, toolbarOpts);
@@ -366,7 +373,7 @@ export function createWorkflow(options = {}) {
       const worldH = maxY - minY || 300;
       const cW = canvas.container.clientWidth - 60;
       const cH = canvas.container.clientHeight - 60;
-      const scale = Math.min(3, Math.max(0.2, Math.min(cW / worldW, cH / worldH)));
+      const scale = Math.min(0.9, Math.max(0.2, Math.min(cW / worldW, cH / worldH)));
       canvas.transform.scale = scale;
       canvas.transform.x = (cW - worldW * scale) / 2 + 30 - minX * scale;
       canvas.transform.y = (cH - worldH * scale) / 2 + 30 - minY * scale;

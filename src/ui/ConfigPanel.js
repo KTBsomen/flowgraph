@@ -97,21 +97,28 @@ export class ConfigPanel {
 
     // Fetch piece auth status if it's an activepieces node
     if (node._apPiece) {
+      // Snappy render immediately with a loading state
+      this._pieceAuthStatus = { loading: true };
+      this._render(node);
+      this.container.querySelector('.wf-config').classList.add('wf-config--active');
+
       const pieceName = node._apPiece.name || node.type.replace(/^ap_/, '');
       const connectionId = this._workflow?.connectionId || 'default_connection';
       const hostUrl = this._workflow?.host || '';
       fetch(`${hostUrl}/api/oauth/status?pieceName=${pieceName}&connectionId=${connectionId}`)
         .then(res => res.json())
         .then(authStatus => {
-          this._pieceAuthStatus = authStatus;
-          this._render(node);
-          this.container.querySelector('.wf-config').classList.add('wf-config--active');
+          if (this._nodeId === node.id) {
+            this._pieceAuthStatus = authStatus;
+            this._render(node);
+          }
         })
         .catch(err => {
           console.error('[ConfigPanel] Failed to fetch piece auth status:', err);
-          this._pieceAuthStatus = null;
-          this._render(node);
-          this.container.querySelector('.wf-config').classList.add('wf-config--active');
+          if (this._nodeId === node.id) {
+            this._pieceAuthStatus = { connected: false };
+            this._render(node);
+          }
         });
     } else {
       this._pieceAuthStatus = null;
@@ -167,13 +174,29 @@ export class ConfigPanel {
 
       ${node._apPiece && node._apPiece.auth ? (() => {
         const authStatus = this._pieceAuthStatus || {};
+        const pieceDisplayName = node._apPiece.displayName || node._apPiece.name;
+        
+        if (authStatus.loading) {
+          return `
+            <div class="wf-config-section">
+              <div class="wf-config-section-title">Authentication</div>
+              <div style="background:#1e293b; border:1px solid #334155; padding:12px; border-radius:6px; margin-bottom:12px; display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div class="wf-skeleton" style="width:110px; height:13px; border-radius:4px;"></div>
+                  <div class="wf-skeleton" style="width:75px; height:18px; border-radius:10px;"></div>
+                </div>
+                <div class="wf-skeleton" style="width:100%; height:32px; border-radius:4px;"></div>
+              </div>
+            </div>
+          `;
+        }
+
         const isConnected = authStatus.connected || false;
         const isGlobal = authStatus.isGlobal || false;
         const authType = authStatus.authType || null;
         const updatedAt = authStatus.updatedAt ? new Date(authStatus.updatedAt).toLocaleString() : null;
         const isOAuth2Piece = node._apPiece.auth.type === 'OAUTH2' || (Array.isArray(node._apPiece.auth) && node._apPiece.auth.some(a => a.type === 'OAUTH2'));
         const hasSystemOAuth = authStatus.hasSystemOAuth || false;
-        const pieceDisplayName = node._apPiece.displayName || node._apPiece.name;
         const authDisplayName = node._apPiece.auth.displayName || 'API Key';
         const authDescription = node._apPiece.auth.description || '';
         const connectionId = this._workflow?.connectionId || 'default_connection';
@@ -443,6 +466,7 @@ export class ConfigPanel {
     // Bind condition builders & router builders
     this._bindConditionBuilders();
     this._bindRouterBuilders();
+    this._bindVariableBuilders();
 
     // Bind variable popovers
     this._bindVarPickers();
@@ -633,9 +657,11 @@ export class ConfigPanel {
     }
 
     // Load all dynamic select dropdowns automatically on initialization
-    this._loadAllDynamicDropdowns();
-    // Load dynamic properties
-    this._loadDynamicPropertiesContainers();
+    if (!this._pieceAuthStatus || !this._pieceAuthStatus.loading) {
+      this._loadAllDynamicDropdowns();
+      // Load dynamic properties
+      this._loadDynamicPropertiesContainers();
+    }
   }
   _getUpstreamVariables(currentNodeId) {
     const vars = [];
@@ -665,7 +691,21 @@ export class ConfigPanel {
       const nodeLabel = node.label || node.id;
       const testOutput = this._testOutputs[upstreamId];
 
-      if (testOutput && typeof testOutput === 'object') {
+      if (node.type === 'start') {
+        const startVariables = node.config?.variables || [];
+        for (const v of startVariables) {
+          if (v.name) {
+            vars.push({
+              name: `steps.${upstreamId}.output.data.${v.name}`,
+              label: `${nodeLabel} ⟶ data.${v.name}`
+            });
+            vars.push({
+              name: `steps.${upstreamId}.output.variables.${v.name}`,
+              label: `${nodeLabel} ⟶ variables.${v.name}`
+            });
+          }
+        }
+      } else if (testOutput && typeof testOutput === 'object') {
         const flatPaths = [];
         const flatten = (obj, path = '') => {
           if (obj === null || obj === undefined) return;
@@ -747,8 +787,24 @@ export class ConfigPanel {
       popover.className = 'wf-var-popover';
 
       const staticVars = this._workflow?.availableVariables || [];
+      
+      const startNode = Array.from(this._workflow?.state?.nodes?.values() || []).find(n => n.type === 'start');
+      const startNodeVars = [];
+      if (startNode) {
+        const variables = startNode.config?.variables || [];
+        for (const v of variables) {
+          if (v.name) {
+            startNodeVars.push({
+              name: `data.${v.name}`,
+              label: `data.${v.name}`,
+              type: v.type || 'string'
+            });
+          }
+        }
+      }
+
       const dynamicVars = this._getUpstreamVariables(this._nodeId);
-      const allVars = [...staticVars, ...dynamicVars];
+      const allVars = [...staticVars, ...startNodeVars, ...dynamicVars];
 
       popover.innerHTML = `
         <div class="wf-var-popover-search">
@@ -1030,6 +1086,70 @@ export class ConfigPanel {
     });
   }
 
+  _bindVariableBuilders() {
+    this.bodyEl.querySelectorAll('.wf-variable-builder').forEach(builder => {
+      const rowsContainer = builder.querySelector('.wf-vb-rows');
+      const addBtn = builder.querySelector('.wf-vb-add-btn');
+
+      // Add variable row
+      addBtn.addEventListener('click', () => {
+        const emptyState = rowsContainer.querySelector('.wf-vb-empty');
+        if (emptyState) emptyState.remove();
+
+        const idx = rowsContainer.querySelectorAll('.wf-vb-row').length;
+        const row = document.createElement('div');
+        row.className = 'wf-vb-row';
+        row.dataset.index = idx;
+        row.style = 'display:flex; gap:6px; align-items:center; background:rgba(255,255,255,0.03); border:1px solid var(--wf-border); padding:6px; border-radius:6px;';
+        row.innerHTML = `
+          <input type="text" class="wf-input wf-vb-name" placeholder="Var name..." value="" style="flex:2; font-size:12px;">
+          <select class="wf-input wf-vb-type" style="flex:1.2; font-size:12px; padding:0 4px; height: 32px; background: var(--wf-bg-input); border: 1px solid var(--wf-border); border-radius: 4px; color: var(--wf-text);">
+            <option value="string" selected>String</option>
+            <option value="number">Number</option>
+            <option value="boolean">Boolean</option>
+          </select>
+          <input type="text" class="wf-input wf-vb-value" placeholder="Default..." value="" style="flex:2; font-size:12px;">
+          <button type="button" class="wf-vb-remove-btn" style="background:transparent; border:none; color:#ef4444; font-size:14px; cursor:pointer; padding:0 4px;">✕</button>
+        `;
+        rowsContainer.appendChild(row);
+        this._bindVariableRowEvents(row);
+        this._emitChange();
+      });
+
+      // Bind existing rows
+      rowsContainer.querySelectorAll('.wf-vb-row').forEach(row => {
+        this._bindVariableRowEvents(row);
+      });
+    });
+  }
+
+  _bindVariableRowEvents(row) {
+    const nameInput = row.querySelector('.wf-vb-name');
+    const typeSelect = row.querySelector('.wf-vb-type');
+    const valInput = row.querySelector('.wf-vb-value');
+    const removeBtn = row.querySelector('.wf-vb-remove-btn');
+
+    nameInput.addEventListener('input', () => this._emitChange());
+    typeSelect.addEventListener('change', () => this._emitChange());
+    valInput.addEventListener('input', () => this._emitChange());
+
+    removeBtn.addEventListener('click', () => {
+      const container = row.parentElement;
+      row.remove();
+
+      // Update indices
+      container.querySelectorAll('.wf-vb-row').forEach((r, i) => {
+        r.dataset.index = i;
+      });
+
+      if (container.querySelectorAll('.wf-vb-row').length === 0) {
+        container.innerHTML = `<div class="wf-vb-empty" style="text-align:center; font-size:11px; color:var(--wf-text-muted); padding:8px;">No variables defined yet.</div>`;
+      }
+
+      this._emitChange();
+    });
+  }
+
   _fieldHTML(key, def, value, config, isSubField = false, subFieldId = null) {
     const val = value !== undefined ? value : (def.default ?? '');
     const id = subFieldId || `wf-field-${key}`;
@@ -1098,6 +1218,34 @@ export class ConfigPanel {
             <button type="button" class="wf-cb-add-btn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Add Condition
+            </button>
+          </div>
+        `);
+
+      case 'variable_builder':
+        const varsList = Array.isArray(val) ? val : [];
+        return wrap(`
+          <div class="wf-variable-builder" id="${id}" ${fieldAttr}>
+            <div class="wf-vb-rows" style="display:flex; flex-direction:column; gap:8px;">
+              ${varsList.map((v, idx) => `
+                <div class="wf-vb-row" data-index="${idx}" style="display:flex; gap:6px; align-items:center; background:rgba(255,255,255,0.03); border:1px solid var(--wf-border); padding:6px; border-radius:6px;">
+                  <input type="text" class="wf-input wf-vb-name" placeholder="Var name..." value="${v.name || ''}" style="flex:2; font-size:12px;">
+                  <select class="wf-input wf-vb-type" style="flex:1.2; font-size:12px; padding:0 4px; height: 32px; background: var(--wf-bg-input); border: 1px solid var(--wf-border); border-radius: 4px; color: var(--wf-text);">
+                    <option value="string" ${v.type === 'string' ? 'selected' : ''}>String</option>
+                    <option value="number" ${v.type === 'number' ? 'selected' : ''}>Number</option>
+                    <option value="boolean" ${v.type === 'boolean' ? 'selected' : ''}>Boolean</option>
+                  </select>
+                  <input type="text" class="wf-input wf-vb-value" placeholder="Default..." value="${v.defaultValue !== undefined ? v.defaultValue : ''}" style="flex:2; font-size:12px;">
+                  <button type="button" class="wf-vb-remove-btn" style="background:transparent; border:none; color:#ef4444; font-size:14px; cursor:pointer; padding:0 4px;">✕</button>
+                </div>
+              `).join('')}
+              ${varsList.length === 0 ? `
+                <div class="wf-vb-empty" style="text-align:center; font-size:11px; color:var(--wf-text-muted); padding:8px;">No variables defined yet.</div>
+              ` : ''}
+            </div>
+            <button type="button" class="wf-vb-add-btn" style="margin-top:8px; width:100%; background:rgba(99,102,241,0.15); border:1px dashed rgba(99,102,241,0.4); color:#a5b4fc; padding:6px; border-radius:6px; font-size:12px; cursor:pointer; font-weight:500; display:flex; align-items:center; justify-content:center; gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Variable
             </button>
           </div>
         `);
@@ -1566,7 +1714,20 @@ export class ConfigPanel {
         return;
       }
 
-      // Gathering: Router Conditions
+      // Gathering: Variable Builder
+      if (def.type === 'variable_builder') {
+        const variables = [];
+        el.querySelectorAll('.wf-vb-row').forEach(row => {
+          const name = row.querySelector('.wf-vb-name').value.trim();
+          const type = row.querySelector('.wf-vb-type').value;
+          const defaultValue = row.querySelector('.wf-vb-value').value;
+          if (name) {
+            variables.push({ name, type, defaultValue });
+          }
+        });
+        currentConfig[fieldName] = variables;
+        return;
+      }
       if (def.type === 'router_conditions') {
         const routeConds = {};
         el.querySelectorAll('.wf-router-route-card').forEach(card => {

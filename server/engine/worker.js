@@ -25,6 +25,7 @@ class FlowWorker {
     // Dedicated connections
     this.redis = new Redis(this.redisConfig);
     this.queue = new Queue('flow-jobs', { connection: this.redisConfig });
+    this.webhookQueue = new Queue('webhookQueue', { connection: this.redisConfig });
 
     // Start BullMQ Worker
     this.worker = new Worker('flow-jobs', async (job) => {
@@ -148,6 +149,19 @@ class FlowWorker {
       throw new Error(errorMsg || `Node execution failed: ${nodeId}`);
     }
 
+    // 9. Compute delay if current node is a delay node
+    let delayMs = 0;
+    if (nodeDef.type === 'delay') {
+      let duration = Number(nodeDef.config?.duration) || 1000;
+      const unit = nodeDef.config?.unit || 'ms';
+      switch (unit) {
+        case 's': duration *= 1000; break;
+        case 'm': duration *= 60 * 1000; break;
+        case 'h': duration *= 60 * 60 * 1000; break;
+      }
+      delayMs = duration;
+    }
+
     // 10. Propagate output to child nodes and adjust indegrees
     const outgoingEdges = edges.filter(e => e.fromNode === nodeId);
     console.log(`[Worker] Node ${nodeId} has ${outgoingEdges.length} outgoing edges.`);
@@ -180,8 +194,13 @@ class FlowWorker {
         if (activeParents > 0) {
           // Ready to run!
           console.log(`[Worker] Enqueueing child node ${childId} to BullMQ.`);
-          await this.queue.add('execute-node', { runId, nodeId: childId }, { jobId: `${runId}__${childId}` });
-          await this.redis.hset(statusKey, childId, 'queued');
+          const jobOpts = { jobId: `${runId}__${childId}` };
+          if (delayMs > 0) {
+            jobOpts.delay = delayMs;
+            console.log(`[Worker] Delaying execution of child node ${childId} by ${delayMs}ms using BullMQ native delay.`);
+          }
+          await this.queue.add('execute-node', { runId, nodeId: childId }, jobOpts);
+          await this.redis.hset(statusKey, childId, delayMs > 0 ? 'delayed' : 'queued');
         } else {
           // No active path hit this node — mark as skipped and propagate
           console.log(`[Worker] Skipping child node ${childId} (no active parents).`);
@@ -268,55 +287,70 @@ class FlowWorker {
         const graphDataRaw = await this.redis.get(graphKey);
         let flowId = 'default_flow';
         let projectId = 'default_project';
+        let submissionId = '';
         if (graphDataRaw) {
           try {
             const parsed = JSON.parse(graphDataRaw);
             flowId = parsed.flowId || flowId;
             projectId = parsed.projectId || projectId;
+            submissionId = parsed.globalVariables?.submissionId || '';
           } catch (_) {}
         }
 
-        // Post to tracker server (mounted on main port 3000) using native http
-        const trackerUrl = process.env.USAGE_TRACKER_URL || 'http://localhost:3000';
-        console.log(`[Worker] Reporting usage for run ${runId} to ${trackerUrl}...`);
-        
-        const http = require('http');
-        const https = require('https');
-        const { URL } = require('url');
+        const hasFailed = logs.some(l => l.status === 'failed');
+        const runStatus = hasFailed ? 'failed' : 'success';
 
-        try {
-          const parsedUrl = new URL(`${trackerUrl}/api/usage/report`);
-          const client = parsedUrl.protocol === 'https:' ? https : http;
-          const payload = JSON.stringify({ runId, flowId, projectId, logs });
-
-          const reqOpts = {
-            hostname: parsedUrl.hostname,
-            port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
-            path: parsedUrl.pathname,
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(payload)
-            },
-            timeout: 5000
+        // Load pricing config to inject cost per node
+        const pricing = require('../usage-tracker/pricing');
+        let totalCost = 0;
+        let totalDurationMs = 0;
+        const logsWithCost = logs.map(l => {
+          let cost = 0;
+          if (l.status === 'success') {
+            const costVal = pricing[l.nodeType];
+            cost = costVal !== undefined ? costVal : (pricing['default'] || 0.005);
+          }
+          totalCost += cost;
+          totalDurationMs += (l.durationMs || 0);
+          return {
+            ...l,
+            cost: Math.round(cost * 1e6) / 1e6
           };
+        });
 
-          const req = client.request(reqOpts, (res) => {
-            if (res.statusCode >= 200 && res.statusCode < 300) {
-              console.log(`[Worker] Successfully reported usage for run ${runId}`);
-            } else {
-              console.error(`[Worker] Tracker returned status ${res.statusCode} for run ${runId}`);
+        totalCost = Math.round(totalCost * 1e6) / 1e6;
+
+        const trackerUrl = process.env.USAGE_TRACKER_URL || 'http://localhost:4000';
+        const webhookUrl = `${trackerUrl}/api/usage/report`;
+        const webhookSecret = process.env.FLOWGRAPH_WEBHOOK_SECRET;
+
+        console.log(`[Worker] Enqueuing webhook delivery for run ${runId} to ${webhookUrl}...`);
+        try {
+          await this.webhookQueue.add('send-webhook', {
+            url: webhookUrl,
+            secret: webhookSecret,
+            payload: {
+              event: 'run.completed',
+              runId,
+              flowId: flowId || 'default_flow',
+              projectId: projectId || 'default_project',
+              submissionId: submissionId || '',
+              status: runStatus,
+              totalCost,
+              durationMs: totalDurationMs,
+              logs: logsWithCost
             }
+          }, {
+            attempts: 5,
+            backoff: {
+              type: 'exponential',
+              delay: 5000
+            },
+            removeOnComplete: true
           });
-
-          req.on('error', (err) => {
-            console.error(`[Worker] Failed to send report to usage tracker:`, err.message);
-          });
-
-          req.write(payload);
-          req.end();
+          console.log(`[Worker] Enqueued webhook job for run ${runId} successfully.`);
         } catch (err) {
-          console.error(`[Worker] Error dispatching usage report:`, err);
+          console.error('[Worker] Failed to enqueue webhook job to BullMQ:', err);
         }
       }
     }
@@ -328,6 +362,9 @@ class FlowWorker {
   async close() {
     await this.worker.close();
     await this.queue.close();
+    if (this.webhookQueue) {
+      await this.webhookQueue.close();
+    }
     await this.redis.quit();
   }
 }

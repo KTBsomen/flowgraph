@@ -100,7 +100,7 @@ module.exports = {
     for (const [name, pkg] of Object.entries(PIECE_PACKAGES)) {
       try {
         const mod = require(pkg);
-        const piece = Object.values(mod).find(val => val && typeof val === 'object' && val.actions);
+        const piece = Object.values(mod).find(val => val && typeof val === 'object' && (val.actions || val._actions));
 
         if (!piece) {
           console.warn(`[AP Adapter] Package "${pkg}" loaded but no piece export with actions was found, skipping.`);
@@ -114,7 +114,7 @@ module.exports = {
 
           async execute(ctx) {
             const { config, auth, store, files } = ctx;
-            const actionsObj = piece.actions();
+            const actionsObj = typeof piece.actions === 'function' ? piece.actions() : (piece._actions || {});
             const action = actionsObj[config.actionName];
 
             if (!action) {
@@ -181,7 +181,8 @@ module.exports = {
           }
         });
 
-        const actionCount = Object.keys(piece.actions()).length;
+        const actionsObj = typeof piece.actions === 'function' ? piece.actions() : (piece._actions || {});
+        const actionCount = Object.keys(actionsObj).length;
         console.log(`[AP Adapter] Registered ap_${name} (${piece.displayName}, ${actionCount} actions)`);
       } catch (err) {
         // Package not installed — that's fine, just skip

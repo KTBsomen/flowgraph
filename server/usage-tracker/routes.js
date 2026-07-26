@@ -4,12 +4,12 @@ const tracker = require('./UsageTracker');
 
 // 1. Report run completion (Internal endpoint used by workers)
 router.post('/report', async (req, res) => {
-  const { runId, flowId, projectId, logs } = req.body;
+  const { runId, flowId, projectId, logs, submissionId } = req.body;
   if (!runId) return res.status(400).json({ error: 'Missing runId' });
 
   try {
     // Run async in background, return response immediately so worker is not blocked
-    tracker.processReport({ runId, flowId, projectId, logs }).catch(err => {
+    tracker.processReport({ runId, flowId, projectId, logs, submissionId }).catch(err => {
       console.error('[UsageTracker Route] Error processing report:', err);
     });
     res.json({ success: true });
