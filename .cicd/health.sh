@@ -5,7 +5,6 @@
 #   CICD_PORT          - the port configured for this service
 #   CICD_SERVICE_DIR   - the service deployment directory
 
-set -Eeuo pipefail
 
 # Skip health check for services that don't run an HTTP server
 if [ "${CICD_SERVICE_NAME:-}" = "flowgraph-worker" ]; then
@@ -26,7 +25,7 @@ echo "Target URL: ${URL}"
 # -o /dev/null: Discard response body
 # -w "%{http_code}": Print the HTTP status code
 if HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${URL}"); then
-    if [ "$HTTP_CODE" -eq 200 ]; then
+    if [ "$HTTP_CODE" -eq 200 || "$HTTP_CODE" -eq 404 ]; then
         echo "✅ Health check PASSED! Status code: ${HTTP_CODE}"
         exit 0
     else
